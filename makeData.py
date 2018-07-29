@@ -172,6 +172,19 @@ class Dataset(object):
         np.savez_compressed(join(self.output_dir, 'eyes.npz'), self.eyes)
         np.savez_compressed(join(self.output_dir, 'label.npz'), self.label)
         
+def batch_iter(
+    def train_generator():
+        subject_path_list = glob.glob(input_dir)
+        for subject_path in subject_path_list:
+            sub = Subject(subject_path)
+            dataset_kind = sub.what_Dataset()
+            if dataset_kind == 'train':
+                input_data, eyes, label = sub
+                input_data = np.array(input_data).reshape(-1, 128, 128, 1).astype('float32') / 255.
+                eyes = np.array(eyes).reshape(-1, 32*32*1*2).astype('float32') / 255.
+                label = np.array(label).astype('float32')
+                yield (input_data, eyes, label)
+
 if __name__ == '__main__':
     subject_path_list = glob.glob(input_dir)
     train_set = Dataset('train')

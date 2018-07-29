@@ -25,6 +25,7 @@ import matplotlib.pyplot as plt
 from utils import combine_images
 from PIL import Image
 from capsulelayers import CapsuleLayer, PrimaryCap
+#from makeData import train_generator
 
 K.set_image_data_format('channels_last')
 
@@ -185,7 +186,7 @@ if __name__ == "__main__":
     # setting the hyper parameters
     parser = argparse.ArgumentParser(description="Capsule Network on MNIST.")
     parser.add_argument('--epochs', default=20, type=int)
-    parser.add_argument('--batch_size', default=15, type=int)
+    parser.add_argument('--batch_size', default=2, type=int)
     parser.add_argument('--lr', default=0.01, type=float,
                         help="Initial learning rate")
     parser.add_argument('--lr_decay', default=0.9, type=float,
@@ -213,7 +214,7 @@ if __name__ == "__main__":
 
     # define model
     model = CapsNet(input_shape=x_train.shape[1:],
-                    n_class=10,
+                    n_class=20,
                     routings=args.routings)
     model.summary()
 
