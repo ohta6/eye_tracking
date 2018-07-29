@@ -111,7 +111,7 @@ def train(model, data, args):
 
     # compile the model
     model.compile(optimizer=optimizers.Adam(lr=args.lr),
-                  loss=['mse', 'mse'],
+                  loss=['mean_absolute_error', 'mean_squared_error'],
                   loss_weights=[1., args.lam_recon],
                   metrics={'capsnet': 'accuracy'})
 
@@ -185,12 +185,12 @@ if __name__ == "__main__":
     # setting the hyper parameters
     parser = argparse.ArgumentParser(description="Capsule Network on MNIST.")
     parser.add_argument('--epochs', default=20, type=int)
-    parser.add_argument('--batch_size', default=10, type=int)
+    parser.add_argument('--batch_size', default=15, type=int)
     parser.add_argument('--lr', default=0.01, type=float,
                         help="Initial learning rate")
     parser.add_argument('--lr_decay', default=0.9, type=float,
                         help="The value multiplied by lr at each epoch. Set a larger value for larger epochs")
-    parser.add_argument('--lam_recon', default=100.0, type=float,
+    parser.add_argument('--lam_recon', default=10.0, type=float,
                         help="The coefficient for the loss of decoder")
     parser.add_argument('-r', '--routings', default=3, type=int,
                         help="Number of iterations used in routing algorithm. should > 0")
