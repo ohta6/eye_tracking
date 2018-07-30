@@ -171,8 +171,28 @@ class Dataset(object):
         np.savez_compressed(join(self.output_dir, 'input.npz'), self.input)
         np.savez_compressed(join(self.output_dir, 'eyes.npz'), self.eyes)
         np.savez_compressed(join(self.output_dir, 'label.npz'), self.label)
+    def make_batch(self, batch_size=100, shuffle=True):
+        self.convert()
+        data_size =  self.input.shape[0]
+        num_batches = int(data_size / batch_size)
+        output_path = join(self.output_dir, 'batches')
+        os.makedirs(output_path, exist_ok=True)
+        if shuffle == True:
+            indices = np.random.permutation(data_size)
+            self.input = self.input[indices]
+            self.eyes = self.eyes[indices]
+            self.label = self.label[indices]
+        for i in range(num_batches):
+            input_batch = self.input[i*batch_size:(i+1)*batch_size]
+            eyes_batch = self.eyes[i*batch_size:(i+1)*batch_size]
+            label_batch = self.label[i*batch_size:(i+1)*batch_size]
+            batch = [input_batch, eyes_batch, label_batch]
+            with open(join(output_path, (str(i)+'.pickle')), 'wb') as f:
+                pickle.dump(batch, f)
+
         
-def batch_iter(
+"""
+def batch_iter(batch_size, shuffle=True):
     def train_generator():
         subject_path_list = glob.glob(input_dir)
         for subject_path in subject_path_list:
@@ -184,6 +204,7 @@ def batch_iter(
                 eyes = np.array(eyes).reshape(-1, 32*32*1*2).astype('float32') / 255.
                 label = np.array(label).astype('float32')
                 yield (input_data, eyes, label)
+"""
 
 if __name__ == '__main__':
     subject_path_list = glob.glob(input_dir)
@@ -199,7 +220,7 @@ if __name__ == '__main__':
             test_set.input_sub(sub)
         if dataset_kind == 'val':
             val_set.input_sub(sub)
-    train_set.save_data()
-    test_set.save_data()
-    val_set.save_data()
+    train_set.make_batch()
+    test_set.make_batch()
+    val_set.make_batch()
 
