@@ -197,10 +197,11 @@ def batch_iter(mode):
     num_batches = len(dir_list)
     def train_generator():
         batch_list = glob.glob(train_dir + '/*')
-        for batch_path in batch_list:
-            with open(batch_path, 'rb') as f:
-                batch = pickle.load(f)
-            yield batch[0], [batch[2], batch[1]]
+        while True:
+            for batch_path in batch_list:
+                with open(batch_path, 'rb') as f:
+                    batch = pickle.load(f)
+                yield batch[0], [batch[2], batch[1]]
     return num_batches, train_generator()
 
 if __name__ == '__main__':

@@ -28,6 +28,11 @@ from capsulelayers import CapsuleLayer, PrimaryCap
 from makeData import batch_iter
 
 K.set_image_data_format('channels_last')
+import tensorflow as tf
+config = tf.ConfigProto(allow_soft_placement=True)
+config.gpu_options.allow_growth = True
+session = tf.Session(config=config)
+K.set_session(session)
 
 
 def CapsNet(input_shape, n_class, routings):
@@ -42,10 +47,10 @@ def CapsNet(input_shape, n_class, routings):
     x = layers.Input(shape=input_shape)
 
     # Layer 1: Just a conventional Conv2D layer
-    conv1 = layers.Conv2D(filters=256, kernel_size=9, strides=1, padding='valid', activation='relu', name='conv1')(x)
+    conv1 = layers.Conv2D(filters=128, kernel_size=9, strides=1, padding='valid', activation='relu', name='conv1')(x)
 
     # Layer 2: Conv2D layer with `squash` activation, then reshape to [None, num_capsule, dim_capsule]
-    primarycaps = PrimaryCap(conv1, dim_capsule=8, n_channels=32, kernel_size=9, strides=2, padding='valid')
+    primarycaps = PrimaryCap(conv1, dim_capsule=8, n_channels=16, kernel_size=9, strides=2, padding='valid')
 
     # Layer 3: Capsule layer. Routing algorithm works here.
     digitcaps = CapsuleLayer(num_capsule=n_class, dim_capsule=16, routings=routings,
@@ -123,7 +128,7 @@ def train(model, args):
     # Begin: Training with data augmentation ---------------------------------------------------------------------#
 
     num_train_batches, train_generator = batch_iter('train')
-    num_val_batches, val_generator = batch_iter('val')
+    num_val_batches, val_generator = batch_iter('test')
     # Training with data augmentation. If shift_fraction=0., also no augmentation.
     model.fit_generator(generator=train_generator,
                         steps_per_epoch=num_train_batches,
@@ -209,7 +214,7 @@ if __name__ == "__main__":
 
     # define model
     model = CapsNet(input_shape=(128, 128, 1),
-                    n_class=10,
+                    n_class=2,
                     routings=args.routings)
     model.summary()
 
