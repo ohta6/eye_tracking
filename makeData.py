@@ -191,20 +191,15 @@ class Dataset(object):
                 pickle.dump(batch, f)
 
         
-"""
-def batch_iter(batch_size, shuffle=True):
+def batch_iter(batch_size=100, shuffle=True):
+    train_dir = join(base_output_dir, 'train', 'batches')
+    dir_list = os.listdir(train_dir)
+    num_batches = len(dir_list)
     def train_generator():
-        subject_path_list = glob.glob(input_dir)
-        for subject_path in subject_path_list:
-            sub = Subject(subject_path)
-            dataset_kind = sub.what_Dataset()
-            if dataset_kind == 'train':
-                input_data, eyes, label = sub
-                input_data = np.array(input_data).reshape(-1, 128, 128, 1).astype('float32') / 255.
-                eyes = np.array(eyes).reshape(-1, 32*32*1*2).astype('float32') / 255.
-                label = np.array(label).astype('float32')
-                yield (input_data, eyes, label)
-"""
+        batch_list = glob.glob(input_dir)
+        for batch in batch_list:
+            yield batch
+    return num_batches, train_generator()
 
 if __name__ == '__main__':
     subject_path_list = glob.glob(input_dir)
