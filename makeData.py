@@ -13,8 +13,8 @@ from tqdm import tqdm
 input_dir = '/home/kai/dataset_for_research/0*'
 base_output_dir = '/home/ohta/workspace/eye_tracking/data/'
 
-# 被験者ごとにインスタンスを作りgeneratorからデータを出力
-class Subject(object):
+# 被験者ごとにiteratorからデータを出力
+class Subject_iter(object):
     def __init__(self, subject_path, limit=20):
         self.subject_path = subject_path
         self.limit = limit
@@ -23,22 +23,7 @@ class Subject(object):
 # 隣接のframeが似ているため,frameの順番をランダムにする
         self.frames_dict = {f:i for i, f in enumerate(self.frames_list)}
         random.shuffle(self.frames_list)
-    
-    def open_each_json(self):
-        self.face_json = self.open_json('appleFace.json')
-        self.leye_json = self.open_json('appleLeftEye.json')
-        self.reye_json = self.open_json('appleRightEye.json')
-        self.info_json = self.open_json('info.json')
-        self.frames_list = self.open_json('frames.json')
-        self.dotInfo_json = self.open_json('dotInfo.json')
-
-    def open_json(self, json_filename):
-        json_path = join(self.subject_path, json_filename)
-        with open(json_path) as f:
-            json_file = json.load(f)
-        return json_file
-# generatorをfor文で回す
-    def generator(self):
+    def __iter__(self):
         for f in self.frames_list:
             # limitの回数以上に出力しない
             if self.gen_num >= self.limit:
@@ -58,6 +43,21 @@ class Subject(object):
                 label_data = self.create_label_data(self.frames_dict[f])
                 self.gen_num += 1
                 yield (input_data, eyes_data, label_data)
+
+    def open_each_json(self):
+        self.face_json = self.open_json('appleFace.json')
+        self.leye_json = self.open_json('appleLeftEye.json')
+        self.reye_json = self.open_json('appleRightEye.json')
+        self.info_json = self.open_json('info.json')
+        self.frames_list = self.open_json('frames.json')
+        self.dotInfo_json = self.open_json('dotInfo.json')
+
+    def open_json(self, json_filename):
+        json_path = join(self.subject_path, json_filename)
+        with open(json_path) as f:
+            json_file = json.load(f)
+        return json_file
+
     def create_input_data(self, img):
 # 縦横比をそのままにする。余白は黒
         base_img = np.zeros((128, 128))
@@ -148,8 +148,8 @@ class Dataset(object):
         self.input = []
         self.eyes = []
         self.label = []
-    def input_sub(self, subject):
-        for sub in tqdm(subject.generator()):
+    def input_sub(self, subject_iter):
+        for sub in tqdm(subject_iter):
             self.input.append(sub[0])
             self.eyes.append(sub[1])
             self.label.append(sub[2])
@@ -171,7 +171,7 @@ class Dataset(object):
         np.savez_compressed(join(self.output_dir, 'input.npz'), self.input)
         np.savez_compressed(join(self.output_dir, 'eyes.npz'), self.eyes)
         np.savez_compressed(join(self.output_dir, 'label.npz'), self.label)
-    def make_batch(self, batch_size=100, shuffle=True):
+    def make_batch(self, batch_size=30, shuffle=True):
         self.convert()
         data_size =  self.input.shape[0]
         num_batches = int(data_size / batch_size)
@@ -191,8 +191,8 @@ class Dataset(object):
                 pickle.dump(batch, f)
 
         
-def batch_iter():
-    train_dir = join(base_output_dir, 'train', 'batches')
+def batch_iter(mode):
+    train_dir = join(base_output_dir, mode, 'batches')
     dir_list = os.listdir(train_dir)
     num_batches = len(dir_list)
     def train_generator():
@@ -200,31 +200,24 @@ def batch_iter():
         for batch_path in batch_list:
             with open(batch_path, 'rb') as f:
                 batch = pickle.load(f)
-            yield batch
+            yield batch[0], [batch[2], batch[1]]
     return num_batches, train_generator()
 
 if __name__ == '__main__':
-    num_batches, generator = batch_iter()
-    print(num_batches)
-    for batch in generator:
-        print(batch)
-        break
-    """
     subject_path_list = glob.glob(input_dir)
     train_set = Dataset('train')
     test_set = Dataset('test')
     val_set = Dataset('val')
     for subject_path in subject_path_list:
-        sub = Subject(subject_path)
-        dataset_kind = sub.what_Dataset()
+        sub_iter = Subject_iter(subject_path)
+        dataset_kind = sub_iter.what_Dataset()
         if dataset_kind == 'train':
-            train_set.input_sub(sub)
+            train_set.input_sub(sub_iter)
         if dataset_kind == 'test':
-            test_set.input_sub(sub)
+            test_set.input_sub(sub_iter)
         if dataset_kind == 'val':
-            val_set.input_sub(sub)
+            val_set.input_sub(sub_iter)
     train_set.make_batch()
     test_set.make_batch()
     val_set.make_batch()
-    """
 

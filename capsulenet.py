@@ -25,7 +25,7 @@ import matplotlib.pyplot as plt
 from utils import combine_images
 from PIL import Image
 from capsulelayers import CapsuleLayer, PrimaryCap
-#from makeData import train_generator
+from makeData import batch_iter
 
 K.set_image_data_format('channels_last')
 
@@ -91,7 +91,7 @@ def CapsNet(input_shape, n_class, routings):
 
 
 
-def train(model, data, args):
+def train(model, args):
     """
     Training a CapsuleNet
     :param model: the CapsuleNet model
@@ -99,8 +99,6 @@ def train(model, data, args):
     :param args: arguments
     :return: The trained model
     """
-    # unpacking the data
-    (x_train, eye_train, y_train), (x_test, eye_test, y_test) = data
 
     # callbacks
     log = callbacks.CSVLogger(args.save_dir + '/log.csv')
@@ -116,27 +114,24 @@ def train(model, data, args):
                   loss_weights=[1., args.lam_recon],
                   metrics={'capsnet': 'accuracy'})
 
+    """
     # Training without data augmentation:
     model.fit(x_train, [y_train, eye_train], batch_size=args.batch_size, epochs=args.epochs,
               validation_data=[x_test, [y_test, eye_test]], callbacks=[log, tb, checkpoint, lr_decay])
     """
 
     # Begin: Training with data augmentation ---------------------------------------------------------------------#
-    def train_generator(x, eye, y, batch_size):
-        train_datagen = ImageDataGenerator()  # shift up to 2 pixel for MNIST
-        generator = train_datagen.flow(x, eye, y, batch_size=batch_size)
-        while 1:
-            x_batch, eye_batch, y_batch = generator.next()
-            yield (x_batch, [y_batch, eye_batch])
 
+    num_train_batches, train_generator = batch_iter('train')
+    num_val_batches, val_generator = batch_iter('val')
     # Training with data augmentation. If shift_fraction=0., also no augmentation.
-    model.fit_generator(generator=train_generator(x_train, eye_train, y_train, args.batch_size),
-                        steps_per_epoch=int(y_train.shape[0] / args.batch_size),
+    model.fit_generator(generator=train_generator,
+                        steps_per_epoch=num_train_batches,
                         epochs=args.epochs,
-                        validation_data=[x_test, [y_test, eye_test]])
-                        #callbacks=[log, tb, checkpoint, lr_decay])
+                        validation_data=val_generator,
+                        validation_steps=num_val_batches,
+                        callbacks=[log, tb, checkpoint, lr_decay])
     # End: Training with data augmentation -----------------------------------------------------------------------#
-    """
 
     model.save_weights(args.save_dir + '/trained_model.h5')
     print('Trained model saved to \'%s/trained_model.h5\'' % args.save_dir)
@@ -210,11 +205,11 @@ if __name__ == "__main__":
 
     # load data
     #(x_train, y_train), (x_test, y_test) = load_mnist()
-    (x_train, eye_train, y_train), (x_test, eye_test, y_test) = load_GazeCapture()
+    #(x_train, eye_train, y_train), (x_test, eye_test, y_test) = load_GazeCapture()
 
     # define model
-    model = CapsNet(input_shape=x_train.shape[1:],
-                    n_class=20,
+    model = CapsNet(input_shape=(128, 128, 1),
+                    n_class=10,
                     routings=args.routings)
     model.summary()
 
@@ -222,7 +217,7 @@ if __name__ == "__main__":
     if args.weights is not None:  # init the model weights with provided one
         model.load_weights(args.weights)
     if not args.testing:
-        train(model=model, data=((x_train, eye_train, y_train), (x_test, eye_test, y_test)), args=args)
+        train(model=model, args=args)
     """
     else:  # as long as weights are given, will run testing
         if args.weights is None:
