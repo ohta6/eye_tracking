@@ -11,9 +11,6 @@ import random
 from tqdm import tqdm
 import configparser
 
-config = configparser.ConfigParser()
-
-input_dir = config['input_dir']
 input_dir = '/home/kai/dataset_for_research/0*'
 base_output_dir = '/home/ohta/workspace/eye_tracking/data/'
 

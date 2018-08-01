@@ -26,6 +26,7 @@ import matplotlib.pyplot as plt
 from utils import combine_images
 from PIL import Image
 from capsulelayers import CapsuleLayer, PrimaryCap
+import glob
 
 # メモリを先食いしないようにする呪文
 K.set_image_data_format('channels_last')
@@ -76,15 +77,24 @@ def CapsNet(input_shape, n_class, routings):
     #masked = Mask()(digitcaps)  # Mask using the capsule with maximal length. For prediction
 
     # Shared Decoder model in training and prediction
-    decoder = models.Sequential(name='decoder')
-    decoder.add(layers.Reshape(target_shape=(16*n_class,), input_shape=(n_class, 16)))
-    decoder.add(layers.Dense(512, activation='relu', input_dim=16*n_class))
-    decoder.add(layers.Dense(1024, activation='relu'))
+    decoder_leye = models.Sequential(name='decoder_leye')
+    decoder_leye.add(layers.Lambda(lambda x: x[:, 0], output_shape=(16,), input_shape=(n_class, 16)))
+    print('a')
+    decoder_leye.add(layers.Dense(512, activation='relu', input_dim=16))
+    decoder_leye.add(layers.Dense(1024, activation='relu'))
 # input_shape -> eye_shape
-    decoder.add(layers.Dense(32*32*1*2, activation='sigmoid'))
+    decoder_leye.add(layers.Dense(32*32*1, activation='sigmoid'))
+
+#output_shape=(16,), 
+    decoder_reye = models.Sequential(name='decoder_reye')
+    decoder_reye.add(layers.Lambda(lambda x: x[:, 1], output_shape=(16,), input_shape=(n_class, 16)))
+    decoder_reye.add(layers.Dense(512, activation='relu', input_dim=16))
+    decoder_reye.add(layers.Dense(1024, activation='relu'))
+# input_shape -> eye_shape
+    decoder_reye.add(layers.Dense(32*32*1, activation='sigmoid'))
 
     # Models for training and evaluation (prediction)
-    model = models.Model(x, [out_caps, decoder(digitcaps)])
+    model = models.Model(x, [out_caps, decoder_leye(digitcaps), decoder_reye(digitcaps)])
     """
     eval_model = models.Model(x, [out_caps, decoder(digitcaps)])
 
@@ -108,7 +118,7 @@ def batch_iter(mode):
             for batch_path in batch_path_list:
                 with open(batch_path, 'rb') as f:
                     batch = pickle.load(f)
-                yield batch[0], [batch[2], batch[1]]
+                yield batch[0], [batch[2][0], batch[2][1], batch[1]]
     return num_batches, train_generator()
 
 
@@ -131,8 +141,8 @@ def train(model, args):
 
     # compile the model
     model.compile(optimizer=optimizers.Adam(lr=args.lr),
-                  loss=['mean_absolute_error', 'mean_squared_error'],
-                  loss_weights=[1., args.lam_recon],
+                  loss=['mean_absolute_error', 'mean_squared_error', 'mean_squared_error'],
+                  loss_weights=[1., args.lam_recon, args.lam_recon],
                   metrics={'capsnet': 'accuracy'})
 
     """
@@ -207,7 +217,7 @@ if __name__ == "__main__":
                         help="Initial learning rate")
     parser.add_argument('--lr_decay', default=0.9, type=float,
                         help="The value multiplied by lr at each epoch. Set a larger value for larger epochs")
-    parser.add_argument('--lam_recon', default=10.0, type=float,
+    parser.add_argument('--lam_recon', default=5.0, type=float,
                         help="The coefficient for the loss of decoder")
     parser.add_argument('-r', '--routings', default=3, type=int,
                         help="Number of iterations used in routing algorithm. should > 0")
