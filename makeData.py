@@ -43,7 +43,7 @@ class Subject_iter(object):
                 self.save_image(eyes_data[1], 'reye', f)
                 label_data = self.create_label_data(self.frames_dict[f])
                 self.gen_num += 1
-                yield (input_data, eyes_data, label_data)
+                yield (input_data, eyes_data[0], eyes_data[1], label_data)
 
     def open_each_json(self):
         self.face_json = self.open_json('appleFace.json')
@@ -147,13 +147,15 @@ class Dataset(object):
         self.mode = mode
         self.output_dir = join(base_output_dir, self.mode)
         self.input = []
-        self.eyes = []
+        self.leye = []
+        self.reye = []
         self.label = []
     def input_sub(self, subject_iter):
         for sub in tqdm(subject_iter):
             self.input.append(sub[0])
-            self.eyes.append(sub[1])
-            self.label.append(sub[2])
+            self.leye.append(sub[1])
+            self.reye.append(sub[2])
+            self.label.append(sub[3])
     def debug(self, subject):
         for sub in subject.generator():
             (input_data, eyes_data, label_data) = sub
@@ -164,14 +166,11 @@ class Dataset(object):
     def convert(self):
         self.input = np.array(self.input)
         self.input = self.input.reshape(-1, 128, 128, 1).astype('float32') / 255.
-        self.eyes = np.array(self.eyes)
-        self.eyes = self.eyes.reshape(-1, 32*32*1*2).astype('float32') / 255.
+        self.leye = np.array(self.leye)
+        self.leye = self.leye.reshape(-1, 32*32*1).astype('float32') / 255.
+        self.reye = np.array(self.reye)
+        self.reye = self.reye.reshape(-1, 32*32*1).astype('float32') / 255.
         self.label = np.array(self.label).astype('float32')
-    def save_data(self):
-        self.convert()
-        np.savez_compressed(join(self.output_dir, 'input.npz'), self.input)
-        np.savez_compressed(join(self.output_dir, 'eyes.npz'), self.eyes)
-        np.savez_compressed(join(self.output_dir, 'label.npz'), self.label)
     def make_batch(self, batch_size=30, shuffle=True):
         self.convert()
         data_size =  self.input.shape[0]
@@ -181,13 +180,15 @@ class Dataset(object):
         if shuffle == True:
             indices = np.random.permutation(data_size)
             self.input = self.input[indices]
-            self.eyes = self.eyes[indices]
+            self.leye = self.leye[indices]
+            self.reye = self.reye[indices]
             self.label = self.label[indices]
         for i in range(num_batches):
             input_batch = self.input[i*batch_size:(i+1)*batch_size]
-            eyes_batch = self.eyes[i*batch_size:(i+1)*batch_size]
+            leye_batch = self.leye[i*batch_size:(i+1)*batch_size]
+            reye_batch = self.reye[i*batch_size:(i+1)*batch_size]
             label_batch = self.label[i*batch_size:(i+1)*batch_size]
-            batch = [input_batch, eyes_batch, label_batch]
+            batch = [input_batch, leye_batch, reye_batch, label_batch]
             with open(join(output_path, (str(i)+'.pickle')), 'wb') as f:
                 pickle.dump(batch, f)
 
