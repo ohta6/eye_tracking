@@ -1,3 +1,4 @@
+# encoding:utf-8
 """
 Keras implementation of CapsNet in Hinton's paper Dynamic Routing Between Capsules.
 The current version maybe only works for TensorFlow backend. Actually it will be straightforward to re-write to TF code.
@@ -25,8 +26,8 @@ import matplotlib.pyplot as plt
 from utils import combine_images
 from PIL import Image
 from capsulelayers import CapsuleLayer, PrimaryCap
-from makeData import batch_iter
 
+# メモリを先食いしないようにする呪文
 K.set_image_data_format('channels_last')
 import tensorflow as tf
 config = tf.ConfigProto(allow_soft_placement=True)
@@ -34,6 +35,8 @@ config.gpu_options.allow_growth = True
 session = tf.Session(config=config)
 K.set_session(session)
 
+
+base_batch_dir = '/home/docker/share/eye_tracking/data/'
 
 def CapsNet(input_shape, n_class, routings):
     """
@@ -94,6 +97,19 @@ def CapsNet(input_shape, n_class, routings):
     """
     return model
 
+# fit_generator用のbatchを返すgeneratorとバッチ数
+def batch_iter(mode):
+    batch_dir = join(base_batch_dir, mode, 'batches')
+    batch_list = os.listdir(batch_dir)
+    num_batches = len(batch_list)
+    def train_generator():
+        batch_path_list = glob.glob(batch_dir + '/*')
+        while True:
+            for batch_path in batch_path_list:
+                with open(batch_path, 'rb') as f:
+                    batch = pickle.load(f)
+                yield batch[0], [batch[2], batch[1]]
+    return num_batches, train_generator()
 
 
 def train(model, args):
@@ -124,11 +140,11 @@ def train(model, args):
     model.fit(x_train, [y_train, eye_train], batch_size=args.batch_size, epochs=args.epochs,
               validation_data=[x_test, [y_test, eye_test]], callbacks=[log, tb, checkpoint, lr_decay])
     """
-
+# augmentなし
     # Begin: Training with data augmentation ---------------------------------------------------------------------#
 
     num_train_batches, train_generator = batch_iter('train')
-    num_val_batches, val_generator = batch_iter('test')
+    num_val_batches, val_generator = batch_iter('val')
     # Training with data augmentation. If shift_fraction=0., also no augmentation.
     model.fit_generator(generator=train_generator,
                         steps_per_epoch=num_train_batches,

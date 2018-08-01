@@ -195,19 +195,6 @@ class Dataset(object):
                 pickle.dump(batch, f)
 
         
-def batch_iter(mode):
-    train_dir = join(base_output_dir, mode, 'batches')
-    dir_list = os.listdir(train_dir)
-    num_batches = len(dir_list)
-    def train_generator():
-        batch_list = glob.glob(train_dir + '/*')
-        while True:
-            for batch_path in batch_list:
-                with open(batch_path, 'rb') as f:
-                    batch = pickle.load(f)
-                yield batch[0], [batch[2], batch[1]]
-    return num_batches, train_generator()
-
 if __name__ == '__main__':
     subject_path_list = glob.glob(input_dir)
     train_set = Dataset('train')
