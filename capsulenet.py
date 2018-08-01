@@ -117,7 +117,7 @@ def batch_iter(mode):
             for batch_path in batch_path_list:
                 with open(batch_path, 'rb') as f:
                     batch = pickle.load(f)
-                yield batch[0], [batch[1], batch[2], batch[3]]
+                yield batch[0], [batch[3], batch[1], batch[2]]
     return num_batches, train_generator()
 
 
@@ -239,7 +239,7 @@ if __name__ == "__main__":
 
     # define model
     model = CapsNet(input_shape=(128, 128, 1),
-                    n_class=2,
+                    n_class=3,
                     routings=args.routings)
     model.summary()
 
