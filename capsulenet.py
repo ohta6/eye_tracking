@@ -79,7 +79,6 @@ def CapsNet(input_shape, n_class, routings):
     # Shared Decoder model in training and prediction
     decoder_leye = models.Sequential(name='decoder_leye')
     decoder_leye.add(layers.Lambda(lambda x: x[:, 0], output_shape=(16,), input_shape=(n_class, 16)))
-    print('a')
     decoder_leye.add(layers.Dense(512, activation='relu', input_dim=16))
     decoder_leye.add(layers.Dense(1024, activation='relu'))
 # input_shape -> eye_shape
@@ -118,7 +117,7 @@ def batch_iter(mode):
             for batch_path in batch_path_list:
                 with open(batch_path, 'rb') as f:
                     batch = pickle.load(f)
-                yield batch[0], [batch[2][0], batch[2][1], batch[1]]
+                yield batch[0], [batch[1], batch[2], batch[3]]
     return num_batches, train_generator()
 
 
