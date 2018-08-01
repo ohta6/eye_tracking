@@ -26,6 +26,7 @@ import matplotlib.pyplot as plt
 from utils import combine_images
 from PIL import Image
 from capsulelayers import CapsuleLayer, PrimaryCap
+import glob
 
 # メモリを先食いしないようにする呪文
 K.set_image_data_format('channels_last')
@@ -36,7 +37,7 @@ session = tf.Session(config=config)
 K.set_session(session)
 
 
-base_batch_dir = '/home/docker/share/eye_tracking/data/'
+base_batch_dir = '/home/ohta/workspace/eye_tracking/data/'
 
 def CapsNet(input_shape, n_class, routings):
     """
@@ -108,7 +109,7 @@ def batch_iter(mode):
             for batch_path in batch_path_list:
                 with open(batch_path, 'rb') as f:
                     batch = pickle.load(f)
-                yield batch[0], [batch[2], batch[1]]
+                yield batch[0], [batch[1], batch[2], batch[3]]
     return num_batches, train_generator()
 
 
@@ -131,8 +132,8 @@ def train(model, args):
 
     # compile the model
     model.compile(optimizer=optimizers.Adam(lr=args.lr),
-                  loss=['mean_absolute_error', 'mean_squared_error'],
-                  loss_weights=[1., args.lam_recon],
+                  loss=['mean_absolute_error', 'mean_squared_error', 'mean_squared_error'],
+                  loss_weights=[1., args.lam_recon, args.lam_recon],
                   metrics={'capsnet': 'accuracy'})
 
     """
