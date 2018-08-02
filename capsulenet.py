@@ -37,7 +37,6 @@ session = tf.Session(config=config)
 K.set_session(session)
 
 
-base_batch_dir = '/home/docker/share/eye_tracking/data/'
 
 def CapsNet(input_shape, n_class, routings):
     """
@@ -107,7 +106,7 @@ def CapsNet(input_shape, n_class, routings):
     return model
 
 # fit_generator用のbatchを返すgeneratorとバッチ数
-def batch_iter(mode):
+def batch_iter(mode, base_batch_dir):
     batch_dir = join(base_batch_dir, mode, 'batches')
     batch_list = os.listdir(batch_dir)
     num_batches = len(batch_list)
@@ -152,8 +151,8 @@ def train(model, args):
 # augmentなし
     # Begin: Training with data augmentation ---------------------------------------------------------------------#
 
-    num_train_batches, train_generator = batch_iter('train')
-    num_val_batches, val_generator = batch_iter('val')
+    num_train_batches, train_generator = batch_iter('train', args.batch_dir)
+    num_val_batches, val_generator = batch_iter('val', args.batch_dir)
     # Training with data augmentation. If shift_fraction=0., also no augmentation.
     model.fit_generator(generator=train_generator,
                         steps_per_epoch=num_train_batches,
@@ -210,6 +209,7 @@ if __name__ == "__main__":
 
     # setting the hyper parameters
     parser = argparse.ArgumentParser(description="Capsule Network on MNIST.")
+    parser.add_argument('--batch_dir', default='/home/docker/share/eye_tracking/data/')
     parser.add_argument('--epochs', default=20, type=int)
     parser.add_argument('--batch_size', default=2, type=int)
     parser.add_argument('--lr', default=0.01, type=float,
