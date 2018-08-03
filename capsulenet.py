@@ -230,7 +230,6 @@ if __name__ == "__main__":
     parser.add_argument('-w', '--weights', default=None,
                         help="The path of the saved weights. Should be specified when testing")
     args = parser.parse_args()
-    print(args)
 
     if not os.path.exists(args.save_dir):
         os.makedirs(args.save_dir)

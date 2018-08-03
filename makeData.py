@@ -9,19 +9,16 @@ import numpy as np
 import pickle
 import random
 from tqdm import tqdm
-import configparser
+import argparse
 from sklearn.preprocessing import StandardScaler
-
-input_dir = '/home/kai/dataset_for_research/0*'
-base_output_dir = '/home/ohta/workspace/eye_tracking/data/'
 
 # 被験者ごとにiteratorからデータを出力
 class Subject_iter(object):
-    def __init__(self, subject_path, limit=20, is_std=True, is_img_saved=False):
+    def __init__(self, subject_path, args): #limit=20, is_std=True, is_img_saved=False):
         self.subject_path = subject_path
-        self.limit = limit
-        self.is_std = is_std
-        self.is_img_saved = is_img_saved
+        self.limit = args.limit
+        self.is_std = args.is_std
+        self.is_img_saved = args.is_img_saved
         self.gen_num = 0
         self.open_each_json()
 # 隣接のframeが似ているため,frameの順番をランダムにする
@@ -152,10 +149,11 @@ def extract_bb(js, i):
     return (left, up, right, down)
 
 class Dataset(object):
-    def __init__(self, mode, is_std=True):
+    def __init__(self, mode, args):
         self.mode = mode
-        self.is_std = is_std
-        self.output_dir = join(base_output_dir, self.mode)
+        self.output_dir = join(args.output_dir, self.mode)
+        self.batch_size = args.batch_size
+        self.is_shuffle = args.is_shuffle
         self.input = []
         self.leye = []
         self.reye = []
@@ -177,18 +175,18 @@ class Dataset(object):
         self.input = np.array(self.input).reshape(-1, 128, 128, 1).astype('float32')
         self.leye = np.array(self.leye).reshape(-1, 32*32*1).astype('float32')
         self.reye = np.array(self.reye).reshape(-1, 32*32*1).astype('float32')
-        if not self.is_std:
+        if not self.args.is_std:
             self.input = self.input / 255.
             self.leye = self.leye / 255.
             self.reye = self.reye / 255.
         self.label = np.array(self.label).astype('float32')
-    def make_batch(self, batch_size=30, shuffle=True):
+    def make_batch(self):
         self.convert()
         data_size =  self.input.shape[0]
         num_batches = int(data_size / batch_size)
         output_path = join(self.output_dir, 'batches')
         os.makedirs(output_path, exist_ok=True)
-        if shuffle == True:
+        if self.is_shuffle:
             indices = np.random.permutation(data_size)
             self.input = self.input[indices]
             self.leye = self.leye[indices]
@@ -205,12 +203,26 @@ class Dataset(object):
 
         
 if __name__ == '__main__':
+
+    # setting the hyper parameters
+    parser = argparse.ArgumentParser(description="make dataset for capsule network.")
+    parser.add_argument('-i', '--input_dir', default='/home/kai/dataset_for_research')
+    parser.add_argument('-o', '--output_dir', default='/home/ohta/workspace/eye_tracking/data/')
+    parser.add_argument('--limit', default=20, type=int)
+    parser.add_argument('--batch_size', default=30, type=int)
+    parser.add_argument('--is_std', action='store_true')
+    parser.add_argument('--is_img_saved', action='store_true')
+    parser.add_argument('--is_shuffle', action='store_true')
+
+    args = parser.parse_args()
+    input_dir = join(args.input_dir, '0*')
     subject_path_list = glob.glob(input_dir)
-    train_set = Dataset('train')
-    test_set = Dataset('test')
-    val_set = Dataset('val')
+
+    train_set = Dataset('train', args)
+    test_set = Dataset('test', args)
+    val_set = Dataset('val', args)
     for subject_path in subject_path_list:
-        sub_iter = Subject_iter(subject_path)
+        sub_iter = Subject_iter(subject_path, args)
         dataset_kind = sub_iter.what_Dataset()
         if dataset_kind == 'train':
             train_set.input_sub(sub_iter)
