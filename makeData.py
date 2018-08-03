@@ -152,8 +152,9 @@ def extract_bb(js, i):
     return (left, up, right, down)
 
 class Dataset(object):
-    def __init__(self, mode):
+    def __init__(self, mode, is_std=True):
         self.mode = mode
+        self.is_std = is_std
         self.output_dir = join(base_output_dir, self.mode)
         self.input = []
         self.leye = []
@@ -173,12 +174,13 @@ class Dataset(object):
             cv2.imwrite('right_eye.jpg', eyes_data[1])
             break
     def convert(self):
-        self.input = np.array(self.input)
-        self.input = self.input.reshape(-1, 128, 128, 1).astype('float32') / 255.
-        self.leye = np.array(self.leye)
-        self.leye = self.leye.reshape(-1, 32*32*1).astype('float32') / 255.
-        self.reye = np.array(self.reye)
-        self.reye = self.reye.reshape(-1, 32*32*1).astype('float32') / 255.
+        self.input = np.array(self.input).reshape(-1, 128, 128, 1).astype('float32')
+        self.leye = np.array(self.leye).reshape(-1, 32*32*1).astype('float32')
+        self.reye = np.array(self.reye).reshape(-1, 32*32*1).astype('float32')
+        if not is_std:
+            self.input = self.input / 255.
+            self.leye = self.leye / 255.
+            self.reye = self.reye / 255.
         self.label = np.array(self.label).astype('float32')
     def make_batch(self, batch_size=30, shuffle=True):
         self.convert()
