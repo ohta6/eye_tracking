@@ -177,7 +177,7 @@ class Dataset(object):
         self.input = np.array(self.input).reshape(-1, 128, 128, 1).astype('float32')
         self.leye = np.array(self.leye).reshape(-1, 32*32*1).astype('float32')
         self.reye = np.array(self.reye).reshape(-1, 32*32*1).astype('float32')
-        if not is_std:
+        if not self.is_std:
             self.input = self.input / 255.
             self.leye = self.leye / 255.
             self.reye = self.reye / 255.
