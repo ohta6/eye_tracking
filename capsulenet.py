@@ -67,6 +67,8 @@ def CapsNet(input_shape, n_class, routings):
     regression = models.Sequential(name='regression')
     regression.add(layers.Reshape(target_shape=(16*n_class,), input_shape=(n_class, 16)))
     regression.add(layers.Dense(256, activation='relu', input_dim=16*n_class))
+    regression.add(layers.Dense(512, activation='relu'))
+    regression.add(layers.Dropout(0.5))
     regression.add(layers.Dense(2))
     out_caps = regression(digitcaps)
 
@@ -81,6 +83,7 @@ def CapsNet(input_shape, n_class, routings):
     decoder_leye.add(layers.Lambda(lambda x: x[:, 0], output_shape=(16,), input_shape=(n_class, 16)))
     decoder_leye.add(layers.Dense(512, activation='relu', input_dim=16))
     decoder_leye.add(layers.Dense(1024, activation='relu'))
+    decoder_leye.add(layers.Dropout(0.5))
 # input_shape -> eye_shape
 # no activation(linear)
     decoder_leye.add(layers.Dense(32*32*1))
@@ -90,6 +93,7 @@ def CapsNet(input_shape, n_class, routings):
     decoder_reye.add(layers.Lambda(lambda x: x[:, 1], output_shape=(16,), input_shape=(n_class, 16)))
     decoder_reye.add(layers.Dense(512, activation='relu', input_dim=16))
     decoder_reye.add(layers.Dense(1024, activation='relu'))
+    decoder_leye.add(layers.Dropout(0.5))
 # input_shape -> eye_shape
 # no activation(linear)
     decoder_reye.add(layers.Dense(32*32*1))
