@@ -10,15 +10,18 @@ import pickle
 import random
 from tqdm import tqdm
 import configparser
+from sklearn.preprocessing import StandardScaler
 
 input_dir = '/home/kai/dataset_for_research/0*'
 base_output_dir = '/home/ohta/workspace/eye_tracking/data/'
 
 # 被験者ごとにiteratorからデータを出力
 class Subject_iter(object):
-    def __init__(self, subject_path, limit=20):
+    def __init__(self, subject_path, limit=20, is_std=True, is_img_saved=False):
         self.subject_path = subject_path
         self.limit = limit
+        self.is_std = is_std
+        self.is_img_saved = is_img_saved
         self.gen_num = 0
         self.open_each_json()
 # 隣接のframeが似ているため,frameの順番をランダムにする
@@ -34,14 +37,20 @@ class Subject_iter(object):
                 img = cv2.imread(f_path, 0)
                 if img is None:
                     break
+                # 画像の標準化
+                if self.is_std:
+                    sc = StandardScaler()
+                    img = sc.fit_transform(img)
 # 全体の画像の縦横を判定
                 self.frame_size = img.shape
                 input_data = self.create_input_data(img)
-                self.save_image(input_data, 'all', f)
                 eyes_data = self.create_eyes_data(img, self.frames_dict[f])
-                self.save_image(eyes_data[0], 'leye', f)
-                self.save_image(eyes_data[1], 'reye', f)
                 label_data = self.create_label_data(self.frames_dict[f])
+# 画像を保存するか？
+                if self.is_img_saved:
+                    self.save_image(input_data, 'all', f)
+                    self.save_image(eyes_data[0], 'leye', f)
+                    self.save_image(eyes_data[1], 'reye', f)
                 self.gen_num += 1
                 yield (input_data, eyes_data[0], eyes_data[1], label_data)
 
