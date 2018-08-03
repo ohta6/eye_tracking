@@ -81,7 +81,8 @@ def CapsNet(input_shape, n_class, routings):
     decoder_leye.add(layers.Dense(512, activation='relu', input_dim=16))
     decoder_leye.add(layers.Dense(1024, activation='relu'))
 # input_shape -> eye_shape
-    decoder_leye.add(layers.Dense(32*32*1, activation='sigmoid'))
+# no activation(linear)
+    decoder_leye.add(layers.Dense(32*32*1))
 
 #output_shape=(16,), 
     decoder_reye = models.Sequential(name='decoder_reye')
@@ -89,7 +90,8 @@ def CapsNet(input_shape, n_class, routings):
     decoder_reye.add(layers.Dense(512, activation='relu', input_dim=16))
     decoder_reye.add(layers.Dense(1024, activation='relu'))
 # input_shape -> eye_shape
-    decoder_reye.add(layers.Dense(32*32*1, activation='sigmoid'))
+# no activation(linear)
+    decoder_reye.add(layers.Dense(32*32*1))
 
     # Models for training and evaluation (prediction)
     model = models.Model(x, [out_caps, decoder_leye(digitcaps), decoder_reye(digitcaps)])
