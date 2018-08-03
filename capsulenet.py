@@ -38,7 +38,7 @@ K.set_session(session)
 
 
 
-def CapsNet(input_shape, n_class, routings):
+def CapsNet(input_shape, n_class, routings, dim_capsule=32):
     """
     A Capsule Network on MNIST.
     :param input_shape: data shape, 3d, [width, height, channels]
@@ -57,7 +57,7 @@ def CapsNet(input_shape, n_class, routings):
     primarycaps = PrimaryCap(conv2, dim_capsule=8, n_channels=16, kernel_size=3, strides=2, padding='valid')
 
     # Layer 3: Capsule layer. Routing algorithm works here.
-    digitcaps = CapsuleLayer(num_capsule=n_class, dim_capsule=16, routings=routings,
+    digitcaps = CapsuleLayer(num_capsule=n_class, dim_capsule=dim_capsule, routings=routings,
                              name='digitcaps')(primarycaps)
 
     # Layer 4: This is an auxiliary layer to replace each capsule with its length. Just to match the true label's shape.
@@ -65,8 +65,8 @@ def CapsNet(input_shape, n_class, routings):
 # 回帰用に変更の必要あり
     #out_caps = Length(name='capsnet')(digitcaps)
     regression = models.Sequential(name='regression')
-    regression.add(layers.Reshape(target_shape=(16*n_class,), input_shape=(n_class, 16)))
-    regression.add(layers.Dense(256, activation='relu', input_dim=16*n_class))
+    regression.add(layers.Reshape(target_shape=(n_class*dim_capsule,), input_shape=(n_class, dim_capsule)))
+    regression.add(layers.Dense(256, activation='relu', input_dim=n_class*dim_capsule))
     regression.add(layers.Dense(512, activation='relu'))
     regression.add(layers.Dropout(0.5))
     regression.add(layers.Dense(2))
@@ -80,8 +80,8 @@ def CapsNet(input_shape, n_class, routings):
 
     # Shared Decoder model in training and prediction
     decoder_leye = models.Sequential(name='decoder_leye')
-    decoder_leye.add(layers.Lambda(lambda x: x[:, 0], output_shape=(16,), input_shape=(n_class, 16)))
-    decoder_leye.add(layers.Dense(512, activation='relu', input_dim=16))
+    decoder_leye.add(layers.Lambda(lambda x: x[:, 0], output_shape=(dim_capsule,), input_shape=(n_class, dim_capsule)))
+    decoder_leye.add(layers.Dense(512, activation='relu', input_dim=dim_capsule))
     decoder_leye.add(layers.Dense(1024, activation='relu'))
     decoder_leye.add(layers.Dropout(0.5))
 # input_shape -> eye_shape
@@ -90,8 +90,8 @@ def CapsNet(input_shape, n_class, routings):
 
 #output_shape=(16,), 
     decoder_reye = models.Sequential(name='decoder_reye')
-    decoder_reye.add(layers.Lambda(lambda x: x[:, 1], output_shape=(16,), input_shape=(n_class, 16)))
-    decoder_reye.add(layers.Dense(512, activation='relu', input_dim=16))
+    decoder_reye.add(layers.Lambda(lambda x: x[:, 1], output_shape=(dim_capsule,), input_shape=(n_class, dim_capsule)))
+    decoder_reye.add(layers.Dense(512, activation='relu', input_dim=dim_capsule))
     decoder_reye.add(layers.Dense(1024, activation='relu'))
     decoder_leye.add(layers.Dropout(0.5))
 # input_shape -> eye_shape
