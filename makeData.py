@@ -16,6 +16,7 @@ from sklearn.preprocessing import StandardScaler
 class Subject_iter(object):
     def __init__(self, subject_path, args): #limit=20, is_std=True, is_img_saved=False):
         self.subject_path = subject_path
+        self.output_dir = args.output_dir
         self.limit = args.limit
         self.is_std = args.is_std
         self.is_img_saved = args.is_img_saved
@@ -44,7 +45,7 @@ class Subject_iter(object):
                 eyes_data = self.create_eyes_data(img, self.frames_dict[f])
                 label_data = self.create_label_data(self.frames_dict[f])
 # 画像を保存するか？
-                if self.is_img_saved:
+                if self.is_img_saved and not is_std:
                     self.save_image(input_data, 'all', f)
                     self.save_image(eyes_data[0], 'leye', f)
                     self.save_image(eyes_data[1], 'reye', f)
@@ -125,7 +126,7 @@ class Subject_iter(object):
         return self.info_json['Dataset']
     def save_image(self, img, part, fname):
         subject_number = os.path.basename(self.subject_path)
-        subject_dir = join(base_output_dir,
+        subject_dir = join(self.output_dir,
                            self.info_json['Dataset'],
                            part,
                            subject_number)
@@ -133,7 +134,7 @@ class Subject_iter(object):
         cv2.imwrite(join(subject_dir, fname), img)
     def save_label(self, label):
         subject_number = os.path.basename(self.subject_path) + '.txt'
-        label_dir = join(base_output_dir,
+        label_dir = join(self.output_dir,
                           self.info_json['Dataset'],
                           'label')
         os.makedirs(label_dir, exist_ok=True)
