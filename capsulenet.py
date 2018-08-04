@@ -66,8 +66,10 @@ def CapsNet(input_shape, n_class, routings, dim_capsule=32):
     #out_caps = Length(name='capsnet')(digitcaps)
     regression = models.Sequential(name='regression')
     regression.add(layers.Reshape(target_shape=(n_class*dim_capsule,), input_shape=(n_class, dim_capsule)))
-    regression.add(layers.Dense(256, activation='relu', input_dim=n_class*dim_capsule))
-    regression.add(layers.Dense(512, activation='relu'))
+    regression.add(layers.Dense(256, activation='relu', input_dim=n_class*dim_capsule,
+                                kernel_regularizer=regularizers.l2(0.01)))
+    regression.add(layers.Dense(512, activation='relu',
+                                kernel_regularizer=regularizers.l2(0.01)))
     regression.add(layers.Dropout(0.5))
     regression.add(layers.Dense(2))
     out_caps = regression(digitcaps)
@@ -146,7 +148,7 @@ def train(model, args):
 
     # compile the model
     model.compile(optimizer=optimizers.Adam(lr=args.lr),
-                  loss=['mean_absolute_error', 'mean_squared_error', 'mean_squared_error'],
+                  loss=['mean_squared_error', 'mean_squared_error', 'mean_squared_error'],
                   loss_weights=[1., args.lam_recon, args.lam_recon],
                   metrics={'capsnet': 'accuracy'})
 
