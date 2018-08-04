@@ -155,6 +155,7 @@ class Dataset(object):
         self.output_dir = join(args.output_dir, self.mode)
         self.batch_size = args.batch_size
         self.is_shuffle = args.is_shuffle
+        self.is_std = args.is_std
         self.input = []
         self.leye = []
         self.reye = []
@@ -176,7 +177,7 @@ class Dataset(object):
         self.input = np.array(self.input).reshape(-1, 128, 128, 1).astype('float32')
         self.leye = np.array(self.leye).reshape(-1, 32*32*1).astype('float32')
         self.reye = np.array(self.reye).reshape(-1, 32*32*1).astype('float32')
-        if not self.args.is_std:
+        if not self.is_std:
             self.input = self.input / 255.
             self.leye = self.leye / 255.
             self.reye = self.reye / 255.
@@ -184,7 +185,7 @@ class Dataset(object):
     def make_batch(self):
         self.convert()
         data_size =  self.input.shape[0]
-        num_batches = int(data_size / batch_size)
+        num_batches = int(data_size / self.batch_size)
         output_path = join(self.output_dir, 'batches')
         os.makedirs(output_path, exist_ok=True)
         if self.is_shuffle:
@@ -194,10 +195,10 @@ class Dataset(object):
             self.reye = self.reye[indices]
             self.label = self.label[indices]
         for i in range(num_batches):
-            input_batch = self.input[i*batch_size:(i+1)*batch_size]
-            leye_batch = self.leye[i*batch_size:(i+1)*batch_size]
-            reye_batch = self.reye[i*batch_size:(i+1)*batch_size]
-            label_batch = self.label[i*batch_size:(i+1)*batch_size]
+            input_batch = self.input[i*self.batch_size:(i+1)*self.batch_size]
+            leye_batch = self.leye[i*self.batch_size:(i+1)*self.batch_size]
+            reye_batch = self.reye[i*self.batch_size:(i+1)*self.batch_size]
+            label_batch = self.label[i*self.batch_size:(i+1)*self.batch_size]
             batch = [input_batch, leye_batch, reye_batch, label_batch]
             with open(join(output_path, (str(i)+'.pickle')), 'wb') as f:
                 pickle.dump(batch, f)
