@@ -148,7 +148,7 @@ def train(model, args):
 
     # compile the model
     model.compile(optimizer=optimizers.Adam(lr=args.lr),
-                  loss=['mean_squared_error', 'mean_squared_error', 'mean_squared_error'],
+                  loss=['mean_absolute_error', 'mean_squared_error', 'mean_squared_error'],
                   loss_weights=[1., args.lam_recon, args.lam_recon],
                   metrics={'capsnet': 'accuracy'})
 
