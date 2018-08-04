@@ -70,7 +70,7 @@ def CapsNet(input_shape, n_class, routings, dim_capsule=32):
                                 kernel_regularizer=regularizers.l2(0.01)))
     regression.add(layers.Dense(512, activation='relu',
                                 kernel_regularizer=regularizers.l2(0.01)))
-    regression.add(layers.Dropout(0.5))
+    #regression.add(layers.Dropout(0.5))
     regression.add(layers.Dense(2))
     out_caps = regression(digitcaps)
 
@@ -85,7 +85,7 @@ def CapsNet(input_shape, n_class, routings, dim_capsule=32):
     decoder_leye.add(layers.Lambda(lambda x: x[:, 0], output_shape=(dim_capsule,), input_shape=(n_class, dim_capsule)))
     decoder_leye.add(layers.Dense(512, activation='relu', input_dim=dim_capsule))
     decoder_leye.add(layers.Dense(1024, activation='relu'))
-    decoder_leye.add(layers.Dropout(0.5))
+    #decoder_leye.add(layers.Dropout(0.5))
 # input_shape -> eye_shape
 # no activation(linear)
     decoder_leye.add(layers.Dense(32*32*1))
@@ -95,7 +95,7 @@ def CapsNet(input_shape, n_class, routings, dim_capsule=32):
     decoder_reye.add(layers.Lambda(lambda x: x[:, 1], output_shape=(dim_capsule,), input_shape=(n_class, dim_capsule)))
     decoder_reye.add(layers.Dense(512, activation='relu', input_dim=dim_capsule))
     decoder_reye.add(layers.Dense(1024, activation='relu'))
-    decoder_leye.add(layers.Dropout(0.5))
+    #decoder_leye.add(layers.Dropout(0.5))
 # input_shape -> eye_shape
 # no activation(linear)
     decoder_reye.add(layers.Dense(32*32*1))
