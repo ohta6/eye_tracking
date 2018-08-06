@@ -52,9 +52,10 @@ def CapsNet(input_shape, n_class, routings, dim_capsule=32):
     # Layer 1: Just a conventional Conv2D layer
     conv1 = layers.Conv2D(filters=128, kernel_size=3, strides=1, padding='valid', activation='relu', name='conv1')(x)
     conv2 = layers.Conv2D(filters=128, kernel_size=3, strides=2, padding='valid', activation='relu', name='conv2')(conv1)
+    batch_norm = layers.normalization.BatchNormalization()(conv2)
 
     # Layer 2: Conv2D layer with `squash` activation, then reshape to [None, num_capsule, dim_capsule]
-    primarycaps = PrimaryCap(conv2, dim_capsule=8, n_channels=16, kernel_size=3, strides=2, padding='valid')
+    primarycaps = PrimaryCap(batch_norm, dim_capsule=8, n_channels=16, kernel_size=3, strides=2, padding='valid')
 
     # Layer 3: Capsule layer. Routing algorithm works here.
     digitcaps = CapsuleLayer(num_capsule=n_class, dim_capsule=dim_capsule, routings=routings,
@@ -66,10 +67,12 @@ def CapsNet(input_shape, n_class, routings, dim_capsule=32):
     #out_caps = Length(name='capsnet')(digitcaps)
     regression = models.Sequential(name='regression')
     regression.add(layers.Reshape(target_shape=(n_class*dim_capsule,), input_shape=(n_class, dim_capsule)))
-    regression.add(layers.Dense(256, activation='relu', input_dim=n_class*dim_capsule,
-                                kernel_regularizer=regularizers.l2(0.01)))
-    regression.add(layers.Dense(512, activation='relu',
-                                kernel_regularizer=regularizers.l2(0.01)))
+    regression.add(layers.Dense(256, activation='relu', input_dim=n_class*dim_capsule))
+#                                kernel_regularizer=regularizers.l2(0.01)))
+    regression.add(layers.normalization.BatchNormalization())
+    regression.add(layers.Dense(512, activation='relu'))
+#                                kernel_regularizer=regularizers.l2(0.01)))
+    regression.add(layers.normalization.BatchNormalization())
     #regression.add(layers.Dropout(0.5))
     regression.add(layers.Dense(2))
     out_caps = regression(digitcaps)
@@ -83,8 +86,11 @@ def CapsNet(input_shape, n_class, routings, dim_capsule=32):
     # Shared Decoder model in training and prediction
     decoder_leye = models.Sequential(name='decoder_leye')
     decoder_leye.add(layers.Lambda(lambda x: x[:, 0], output_shape=(dim_capsule,), input_shape=(n_class, dim_capsule)))
+    decoder_leye.add(layers.normalization.BatchNormalization())
     decoder_leye.add(layers.Dense(512, activation='relu', input_dim=dim_capsule))
+    decoder_leye.add(layers.normalization.BatchNormalization())
     decoder_leye.add(layers.Dense(1024, activation='relu'))
+    decoder_leye.add(layers.normalization.BatchNormalization())
     #decoder_leye.add(layers.Dropout(0.5))
 # input_shape -> eye_shape
 # no activation(linear)
@@ -93,8 +99,11 @@ def CapsNet(input_shape, n_class, routings, dim_capsule=32):
 #output_shape=(16,), 
     decoder_reye = models.Sequential(name='decoder_reye')
     decoder_reye.add(layers.Lambda(lambda x: x[:, 1], output_shape=(dim_capsule,), input_shape=(n_class, dim_capsule)))
+    decoder_reye.add(layers.normalization.BatchNormalization())
     decoder_reye.add(layers.Dense(512, activation='relu', input_dim=dim_capsule))
+    decoder_reye.add(layers.normalization.BatchNormalization())
     decoder_reye.add(layers.Dense(1024, activation='relu'))
+    decoder_reye.add(layers.normalization.BatchNormalization())
     #decoder_leye.add(layers.Dropout(0.5))
 # input_shape -> eye_shape
 # no activation(linear)
