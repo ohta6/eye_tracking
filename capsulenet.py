@@ -170,7 +170,7 @@ def train(model, args):
     # Begin: Training with data augmentation ---------------------------------------------------------------------#
 
     num_train_batches, train_generator = batch_iter('train', args.batch_dir)
-    num_val_batches, val_generator = batch_iter('val', args.batch_dir)
+    num_val_batches, val_generator = batch_iter('train', args.batch_dir)
     # Training with data augmentation. If shift_fraction=0., also no augmentation.
     model.fit_generator(generator=train_generator,
                         steps_per_epoch=num_train_batches,
