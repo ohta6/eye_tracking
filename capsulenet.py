@@ -77,40 +77,9 @@ def CapsNet(input_shape, n_class, routings, dim_capsule=32):
     regression.add(layers.Dense(2))
     out_caps = regression(digitcaps)
 
-    # Decoder network.
-# 入力削除、maskも不要
-    #y = layers.Input(shape=(n_class,))
-    #masked_by_y = Mask()([digitcaps, y])  # The true label is used to mask the output of capsule layer. For training
-    #masked = Mask()(digitcaps)  # Mask using the capsule with maximal length. For prediction
-
-    # Shared Decoder model in training and prediction
-    decoder_leye = models.Sequential(name='decoder_leye')
-    decoder_leye.add(layers.Lambda(lambda x: x[:, 0], output_shape=(dim_capsule,), input_shape=(n_class, dim_capsule)))
-    decoder_leye.add(layers.normalization.BatchNormalization())
-    decoder_leye.add(layers.Dense(512, activation='relu', input_dim=dim_capsule))
-    decoder_leye.add(layers.normalization.BatchNormalization())
-    decoder_leye.add(layers.Dense(1024, activation='relu'))
-    decoder_leye.add(layers.normalization.BatchNormalization())
-    #decoder_leye.add(layers.Dropout(0.5))
-# input_shape -> eye_shape
-# no activation(linear)
-    decoder_leye.add(layers.Dense(32*32*1))
-
-#output_shape=(16,), 
-    decoder_reye = models.Sequential(name='decoder_reye')
-    decoder_reye.add(layers.Lambda(lambda x: x[:, 1], output_shape=(dim_capsule,), input_shape=(n_class, dim_capsule)))
-    decoder_reye.add(layers.normalization.BatchNormalization())
-    decoder_reye.add(layers.Dense(512, activation='relu', input_dim=dim_capsule))
-    decoder_reye.add(layers.normalization.BatchNormalization())
-    decoder_reye.add(layers.Dense(1024, activation='relu'))
-    decoder_reye.add(layers.normalization.BatchNormalization())
-    #decoder_leye.add(layers.Dropout(0.5))
-# input_shape -> eye_shape
-# no activation(linear)
-    decoder_reye.add(layers.Dense(32*32*1))
 
     # Models for training and evaluation (prediction)
-    model = models.Model(x, [out_caps, decoder_leye(digitcaps), decoder_reye(digitcaps)])
+    model = models.Model(x, out_caps)
     """
     eval_model = models.Model(x, [out_caps, decoder(digitcaps)])
 
@@ -122,8 +91,8 @@ def CapsNet(input_shape, n_class, routings, dim_capsule=32):
     return train_model, eval_model, manipulate_model
     """
     return model
-
 # fit_generator用のbatchを返すgeneratorとバッチ数
+
 def batch_iter(mode, base_batch_dir):
     batch_dir = join(base_batch_dir, mode, 'batches')
     batch_list = os.listdir(batch_dir)
@@ -134,9 +103,8 @@ def batch_iter(mode, base_batch_dir):
             for batch_path in batch_path_list:
                 with open(batch_path, 'rb') as f:
                     batch = pickle.load(f)
-                yield batch[0], [batch[3], batch[1], batch[2]]
+                yield batch[0], batch[3]
     return num_batches, train_generator()
-
 
 def train(model, args):
     """
@@ -157,8 +125,7 @@ def train(model, args):
 
     # compile the model
     model.compile(optimizer=optimizers.Adam(lr=args.lr),
-                  loss=['mean_absolute_error', 'mean_squared_error', 'mean_squared_error'],
-                  loss_weights=[1., args.lam_recon, args.lam_recon],
+                  loss='mean_absolute_error',
                   metrics={'capsnet': 'accuracy'})
 
     """
