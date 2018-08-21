@@ -137,7 +137,7 @@ def train(model, args):
     # Begin: Training with data augmentation ---------------------------------------------------------------------#
 
     num_train_batches, train_generator = batch_iter('train', args.batch_dir)
-    num_val_batches, val_generator = batch_iter('train', args.batch_dir)
+    num_val_batches, val_generator = batch_iter('val', args.batch_dir)
     # Training with data augmentation. If shift_fraction=0., also no augmentation.
     model.fit_generator(generator=train_generator,
                         steps_per_epoch=num_train_batches,
@@ -154,19 +154,20 @@ def train(model, args):
 
 
 def test(model, data, args):
-    x_test, y_test = data
-    y_pred, x_recon = model.predict(x_test, batch_size=100)
-    print('-'*30 + 'Begin: test' + '-'*30)
-    print('Test acc:', np.sum(np.argmax(y_pred, 1) == np.argmax(y_test, 1))/y_test.shape[0])
-
-    img = combine_images(np.concatenate([x_test[:50],x_recon[:50]]))
-    image = img * 255
-    Image.fromarray(image.astype(np.uint8)).save(args.save_dir + "/real_and_recon.png")
-    print()
-    print('Reconstructed images are saved to %s/real_and_recon.png' % args.save_dir)
-    print('-' * 30 + 'End: test' + '-' * 30)
-    plt.imshow(plt.imread(args.save_dir + "/real_and_recon.png"))
-    plt.show()
+    from tensorflow.python.client import timeline
+    from tensorflow.python.client import session
+    from tensorflow.python.framework import ops
+    run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+    run_metadata = tf.RunMetadata()
+    with ops.device('/cpu:0'):
+        with session.Session() as sess:
+            result = sess.run(model,
+                    feed_dict={},
+                    option=run_options,
+                    run_metadata=run_metadata)
+    step_stas = run_metadata.step_stats
+    tl = timeline.Timeline(step_stats)
+    ctf = tl.generate_chrome_trace_format(show_memory=False, show_dataflow=True)
 
 
 
