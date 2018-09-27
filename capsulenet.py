@@ -80,6 +80,7 @@ def CapsNet(input_shape, n_class, routings, dim_capsule=32):
 
     # Models for training and evaluation (prediction)
     model = models.Model(x, out_caps)
+    eval_model = models.Model(x, out_caps)
     """
     eval_model = models.Model(x, [out_caps, decoder(digitcaps)])
 
@@ -90,7 +91,7 @@ def CapsNet(input_shape, n_class, routings, dim_capsule=32):
     manipulate_model = models.Model([x, y, noise], decoder(masked_noised_y))
     return train_model, eval_model, manipulate_model
     """
-    return model
+    return model, eval_model
 # fit_generator用のbatchを返すgeneratorとバッチ数
 
 def batch_iter(mode, base_batch_dir):
@@ -119,13 +120,13 @@ def train(model, args):
     log = callbacks.CSVLogger(args.save_dir + '/log.csv')
     tb = callbacks.TensorBoard(log_dir=args.save_dir + '/tensorboard-logs',
                                batch_size=args.batch_size, histogram_freq=int(args.debug))
-    checkpoint = callbacks.ModelCheckpoint(args.save_dir + '/weights-{epoch:02d}.h5', monitor='val_capsnet_acc',
+    checkpoint = callbacks.ModelCheckpoint(args.save_dir + '/weights-{epoch:02d}.h5', monitor='val_loss',
                                            save_best_only=True, save_weights_only=True, verbose=1)
     lr_decay = callbacks.LearningRateScheduler(schedule=lambda epoch: args.lr * (args.lr_decay ** epoch))
 
     # compile the model
     model.compile(optimizer=optimizers.Adam(lr=args.lr),
-                  loss='mean_absolute_error',
+                  loss='mean_squared_error',
                   metrics={'capsnet': 'accuracy'})
 
     """
@@ -153,21 +154,38 @@ def train(model, args):
     return model
 
 
-def test(model, data, args):
+def test(model, args):
     from tensorflow.python.client import timeline
     from tensorflow.python.client import session
     from tensorflow.python.framework import ops
     run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
     run_metadata = tf.RunMetadata()
-    with ops.device('/cpu:0'):
-        with session.Session() as sess:
-            result = sess.run(model,
-                    feed_dict={},
-                    option=run_options,
-                    run_metadata=run_metadata)
+
+    _, test_generator = batch_iter('test', args.batch_dir)
+
+    for [input_data, label_data] in test_generator:
+        y_results = model.predict(input_data, batch_size=30)
+        for y_label, y_pred in zip(label_data, y_results):
+            print(y_label)
+            print(y_pred)
+            print(np.sqrt(np.sum((y_label-y_pred)**2)))
+            print()
+        break
+
+    """
+    for [input_data, label_data] in test_generator():
+        feed_dict = {
+        with ops.device('/cpu:0'):
+            with session.Session() as sess:
+                result = sess.run(model,
+                        feed_dict=feed_dict,
+                        option=run_options,
+                        run_metadata=run_metadata)
+
     step_stas = run_metadata.step_stats
     tl = timeline.Timeline(step_stats)
     ctf = tl.generate_chrome_trace_format(show_memory=False, show_dataflow=True)
+    """
 
 
 
@@ -223,22 +241,22 @@ if __name__ == "__main__":
     #(x_train, eye_train, y_train), (x_test, eye_test, y_test) = load_GazeCapture()
 
     # define model
-    model = CapsNet(input_shape=(128, 128, 1),
-                    n_class=3,
-                    routings=args.routings)
+    model, eval_model = CapsNet(input_shape=(128, 128, 1),
+                                n_class=3,
+                                routings=args.routings)
     model.summary()
 
     # train or test
     if args.weights is not None:  # init the model weights with provided one
-        model.load_weights(args.weights)
+        eval_model.load_weights(args.weights)
     if not args.testing:
         train(model=model, args=args)
-    """
     else:  # as long as weights are given, will run testing
         if args.weights is None:
             print('No weights are provided. Will test using random initialized weights.')
-        manipulate_latent(manipulate_model, (x_test, y_test), args)
-        test(model=eval_model, data=(x_test, y_test), args=args)
+        #manipulate_latent(manipulate_model, (x_test, y_test), args)
+        test(model=eval_model, args=args)
+    """
 
 def manipulate_latent(model, data, args):
     print('-'*30 + 'Begin: manipulate' + '-'*30)
