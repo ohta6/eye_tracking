@@ -126,8 +126,8 @@ def train(model, args):
 
     # compile the model
     model.compile(optimizer=optimizers.Adam(lr=args.lr),
-                  loss='mean_squared_error',
-                  metrics={'capsnet': 'accuracy'})
+                  loss='mean_absolute_error',
+                  metrics=['mse'])#{'capsnet': 'accuracy'})
 
     """
     # Training without data augmentation:
@@ -215,7 +215,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Capsule Network on MNIST.")
     parser.add_argument('--batch_dir', default='/home/docker/share/eye_tracking/data/')
     parser.add_argument('--epochs', default=20, type=int)
-    parser.add_argument('--batch_size', default=2, type=int)
+    parser.add_argument('--batch_size', default=30, type=int)
     parser.add_argument('--lr', default=0.01, type=float,
                         help="Initial learning rate")
     parser.add_argument('--lr_decay', default=0.9, type=float,
