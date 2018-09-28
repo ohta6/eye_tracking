@@ -38,7 +38,7 @@ K.set_session(session)
 
 
 
-def CapsNet(input_shape, n_class, routings, dim_capsule=32):
+def CapsNet(input_shape, n_class, routings, dim_capsule=16):
     """
     A Capsule Network on MNIST.
     :param input_shape: data shape, 3d, [width, height, channels]
@@ -51,11 +51,11 @@ def CapsNet(input_shape, n_class, routings, dim_capsule=32):
 
     # Layer 1: Just a conventional Conv2D layer
     conv1 = layers.Conv2D(filters=128, kernel_size=3, strides=1, padding='valid', activation='relu', name='conv1')(x)
-    conv2 = layers.Conv2D(filters=128, kernel_size=3, strides=2, padding='valid', activation='relu', name='conv2')(conv1)
+    conv2 = layers.Conv2D(filters=256, kernel_size=3, strides=2, padding='valid', activation='relu', name='conv2')(conv1)
     batch_norm = layers.normalization.BatchNormalization()(conv2)
 
     # Layer 2: Conv2D layer with `squash` activation, then reshape to [None, num_capsule, dim_capsule]
-    primarycaps = PrimaryCap(batch_norm, dim_capsule=8, n_channels=16, kernel_size=3, strides=2, padding='valid')
+    primarycaps = PrimaryCap(batch_norm, dim_capsule=8, n_channels=32, kernel_size=3, strides=2, padding='valid')
 
     # Layer 3: Capsule layer. Routing algorithm works here.
     digitcaps = CapsuleLayer(num_capsule=n_class, dim_capsule=dim_capsule, routings=routings,
