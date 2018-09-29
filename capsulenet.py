@@ -123,11 +123,12 @@ def train(model, args):
     checkpoint = callbacks.ModelCheckpoint(args.save_dir + '/weights-{epoch:02d}.h5', monitor='val_loss',
                                            save_best_only=True, save_weights_only=True, verbose=1)
     lr_decay = callbacks.LearningRateScheduler(schedule=lambda epoch: args.lr * (args.lr_decay ** epoch))
+    early_stopping = callbacks.EarlyStopping(monitor='val_loss', patience=5, verbose=1)
 
     # compile the model
     model.compile(optimizer=optimizers.Adam(lr=args.lr),
-                  loss='mean_absolute_error',
-                  metrics=['mse'])#{'capsnet': 'accuracy'})
+                  loss='mse',
+                  metrics=['mae'])#{'capsnet': 'accuracy'})
 
     """
     # Training without data augmentation:
@@ -145,7 +146,7 @@ def train(model, args):
                         epochs=args.epochs,
                         validation_data=val_generator,
                         validation_steps=num_val_batches,
-                        callbacks=[log, tb, checkpoint, lr_decay])
+                        callbacks=[log, tb, checkpoint, lr_decay, early_stopping])
     # End: Training with data augmentation -----------------------------------------------------------------------#
 
     model.save_weights(args.save_dir + '/trained_model.h5')
