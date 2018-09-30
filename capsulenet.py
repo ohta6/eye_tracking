@@ -38,7 +38,7 @@ K.set_session(session)
 
 
 
-def CapsNet(input_shape, n_class, routings, dim_capsule=32):
+def CapsNet(input_shape, n_class, routings, dim_capsule=16):
     """
     A Capsule Network on MNIST.
     :param input_shape: data shape, 3d, [width, height, channels]
@@ -51,11 +51,11 @@ def CapsNet(input_shape, n_class, routings, dim_capsule=32):
 
     # Layer 1: Just a conventional Conv2D layer
     conv1 = layers.Conv2D(filters=128, kernel_size=3, strides=1, padding='valid', activation='relu', name='conv1')(x)
-    conv2 = layers.Conv2D(filters=128, kernel_size=3, strides=2, padding='valid', activation='relu', name='conv2')(conv1)
+    conv2 = layers.Conv2D(filters=256, kernel_size=3, strides=2, padding='valid', activation='relu', name='conv2')(conv1)
     batch_norm = layers.normalization.BatchNormalization()(conv2)
 
     # Layer 2: Conv2D layer with `squash` activation, then reshape to [None, num_capsule, dim_capsule]
-    primarycaps = PrimaryCap(batch_norm, dim_capsule=8, n_channels=16, kernel_size=3, strides=2, padding='valid')
+    primarycaps = PrimaryCap(batch_norm, dim_capsule=8, n_channels=32, kernel_size=3, strides=2, padding='valid')
 
     # Layer 3: Capsule layer. Routing algorithm works here.
     digitcaps = CapsuleLayer(num_capsule=n_class, dim_capsule=dim_capsule, routings=routings,
@@ -151,15 +151,16 @@ def train(model, args):
     log = callbacks.CSVLogger(args.save_dir + '/log.csv')
     tb = callbacks.TensorBoard(log_dir=args.save_dir + '/tensorboard-logs',
                                batch_size=args.batch_size, histogram_freq=int(args.debug))
-    checkpoint = callbacks.ModelCheckpoint(args.save_dir + '/weights-{epoch:02d}.h5', monitor='val_capsnet_acc',
+    checkpoint = callbacks.ModelCheckpoint(args.save_dir + '/weights-{epoch:02d}.h5', monitor='val_loss',
                                            save_best_only=True, save_weights_only=True, verbose=1)
     lr_decay = callbacks.LearningRateScheduler(schedule=lambda epoch: args.lr * (args.lr_decay ** epoch))
+    early_stopping = callbacks.EarlyStopping(monitor='val_loss', verbose=1, patience=5)
 
     # compile the model
     model.compile(optimizer=optimizers.Adam(lr=args.lr),
-                  loss=['mean_absolute_error', 'mean_squared_error', 'mean_squared_error'],
+                  loss=['mse', 'mse', 'mse'],
                   loss_weights=[1., args.lam_recon, args.lam_recon],
-                  metrics={'capsnet': 'accuracy'})
+                  metrics={'capsnet': 'mae'})
 
     """
     # Training without data augmentation:
@@ -170,14 +171,14 @@ def train(model, args):
     # Begin: Training with data augmentation ---------------------------------------------------------------------#
 
     num_train_batches, train_generator = batch_iter('train', args.batch_dir)
-    num_val_batches, val_generator = batch_iter('train', args.batch_dir)
+    num_val_batches, val_generator = batch_iter('val', args.batch_dir)
     # Training with data augmentation. If shift_fraction=0., also no augmentation.
     model.fit_generator(generator=train_generator,
                         steps_per_epoch=num_train_batches,
                         epochs=args.epochs,
                         validation_data=val_generator,
                         validation_steps=num_val_batches,
-                        callbacks=[log, tb, checkpoint, lr_decay])
+                        callbacks=[log, tb, checkpoint, lr_decay, early_stopping])
     # End: Training with data augmentation -----------------------------------------------------------------------#
 
     model.save_weights(args.save_dir + '/trained_model.h5')
@@ -228,8 +229,11 @@ if __name__ == "__main__":
     # setting the hyper parameters
     parser = argparse.ArgumentParser(description="Capsule Network on MNIST.")
     parser.add_argument('--batch_dir', default='/home/docker/share/eye_tracking/data/')
+    parser.add_argument('--save_dir', default='./result')
     parser.add_argument('--epochs', default=20, type=int)
-    parser.add_argument('--batch_size', default=2, type=int)
+    parser.add_argument('--batch_size', default=30, type=int)
+    parser.add_argument('--n_class', default=3, type=int)
+    parser.add_argument('--dim_capsule', default=16, type=int)
     parser.add_argument('--lr', default=0.01, type=float,
                         help="Initial learning rate")
     parser.add_argument('--lr_decay', default=0.9, type=float,
@@ -240,7 +244,6 @@ if __name__ == "__main__":
                         help="Number of iterations used in routing algorithm. should > 0")
     parser.add_argument('--debug', action='store_true',
                         help="Save weights by TensorBoard")
-    parser.add_argument('--save_dir', default='./result')
     parser.add_argument('-t', '--testing', action='store_true',
                         help="Test the trained model on testing dataset")
     parser.add_argument('-w', '--weights', default=None,
@@ -256,8 +259,9 @@ if __name__ == "__main__":
 
     # define model
     model = CapsNet(input_shape=(128, 128, 1),
-                    n_class=3,
-                    routings=args.routings)
+                    n_class=args.n_class,
+                    routings=args.routings,
+                    dim_capsule=args.dim_capsule)
     model.summary()
 
     # train or test
