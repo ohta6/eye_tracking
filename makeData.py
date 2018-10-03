@@ -45,7 +45,7 @@ class Subject_iter(object):
                 eyes_data = self.create_eyes_data(img, self.frames_dict[f])
                 label_data = self.create_label_data(self.frames_dict[f])
 # 画像を保存するか？
-                if self.is_img_saved and not is_std:
+                if self.is_img_saved and not self.is_std:
                     self.save_image(input_data, 'all', f)
                     self.save_image(eyes_data[0], 'leye', f)
                     self.save_image(eyes_data[1], 'reye', f)
