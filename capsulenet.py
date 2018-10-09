@@ -49,6 +49,7 @@ def CapsNet(input_shape, n_class, routings, dim_capsule=16):
     """
     x = layers.Input(shape=input_shape)
 
+    #x = layers.normalization.BatchNormalization()(x)
     # Layer 1: Just a conventional Conv2D layer
     conv1 = layers.Conv2D(filters=128, kernel_size=3, strides=1, padding='valid', activation='relu', name='conv1')(x)
     conv2 = layers.Conv2D(filters=256, kernel_size=3, strides=2, padding='valid', activation='relu', name='conv2')(conv1)
@@ -94,7 +95,7 @@ def CapsNet(input_shape, n_class, routings, dim_capsule=16):
     #decoder_leye.add(layers.Dropout(0.5))
 # input_shape -> eye_shape
 # no activation(linear)
-    decoder_leye.add(layers.Dense(32*32*1))
+    decoder_leye.add(layers.Dense(32*32*1, activation='sigmoid'))
 
 #output_shape=(16,), 
     decoder_reye = models.Sequential(name='decoder_reye')
@@ -107,10 +108,11 @@ def CapsNet(input_shape, n_class, routings, dim_capsule=16):
     #decoder_leye.add(layers.Dropout(0.5))
 # input_shape -> eye_shape
 # no activation(linear)
-    decoder_reye.add(layers.Dense(32*32*1))
+    decoder_reye.add(layers.Dense(32*32*1, activation='sigmoid'))
 
     # Models for training and evaluation (prediction)
     model = models.Model(x, [out_caps, decoder_leye(digitcaps), decoder_reye(digitcaps)])
+    eval_model = models.Model(x, [out_caps, decoder_leye(digitcaps), decoder_reye(digitcaps)])
     """
     eval_model = models.Model(x, [out_caps, decoder(digitcaps)])
 
@@ -121,7 +123,7 @@ def CapsNet(input_shape, n_class, routings, dim_capsule=16):
     manipulate_model = models.Model([x, y, noise], decoder(masked_noised_y))
     return train_model, eval_model, manipulate_model
     """
-    return model
+    return model, eval_model
 
 # fit_generator用のbatchを返すgeneratorとバッチ数
 def batch_iter(mode, base_batch_dir):
@@ -187,9 +189,50 @@ def train(model, args):
     return model
 
 
-def test(model, data, args):
-    x_test, y_test = data
-    y_pred, x_recon = model.predict(x_test, batch_size=100)
+def test(model, args):
+    _, test_generator = batch_iter('test', args.batch_dir)
+    buf = []
+    count = 0
+    for input_batch, [label_batch, leye_batch, reye_batch] in test_generator:
+        [y_preds, leye_recons, reye_recons] = model.predict(input_batch, batch_size=args.batch_size)
+        real_dists = np.sqrt(np.sum((label_batch-y_preds)**2, axis=-1))
+        print(real_dists)
+        buf.append(real_dists)
+        count += 1
+        if count == 100:
+            break
+    total = np.concatenate(buf, axis=0)
+    print(total.shape)
+    print(total.mean())
+    """
+        l_label_imgs = np.reshape(leye_batch, [-1, 32, 32]) * 255.
+        l_recon_imgs = np.reshape(leye_recons, [-1, 32, 32]) * 255.
+        r_label_imgs = np.reshape(reye_batch, [-1, 32, 32]) * 255.
+        r_recon_imgs = np.reshape(reye_recons, [-1, 32, 32]) * 255.
+        l_label_img = np.concatenate(l_label_imgs[:10], axis=1)
+        l_recon_img = np.concatenate(l_recon_imgs[:10], axis=1)
+        r_label_img = np.concatenate(r_label_imgs[:10], axis=1)
+        r_recon_img = np.concatenate(r_recon_imgs[:10], axis=1)
+        img = np.concatenate([l_label_img, l_recon_img, r_label_img, r_recon_img], axis=0)
+
+        Image.fromarray(img.astype(np.uint8)).save(args.save_dir + "/real_recon.png")
+
+        break
+        """
+
+    """
+        for y_label, y_pred, l_label, l_recon, r_label, r_recon in zip(label_batch, y_preds, leye_batch, leye_recons, reye_batch, reye_recons):
+            print(np.sqrt(np.sum((y_label-y_pred)**2)))
+            print(l_label.shape)
+            print(l_recon.shape)
+            l_img = np.reshape(l_label
+
+            break
+        break
+
+        for y_label, y_pred in zip(label_batch, y_preds):
+            print(
+    
     print('-'*30 + 'Begin: test' + '-'*30)
     print('Test acc:', np.sum(np.argmax(y_pred, 1) == np.argmax(y_test, 1))/y_test.shape[0])
 
@@ -201,8 +244,7 @@ def test(model, data, args):
     print('-' * 30 + 'End: test' + '-' * 30)
     plt.imshow(plt.imread(args.save_dir + "/real_and_recon.png"))
     plt.show()
-
-
+    """
 
 def load_GazeCapture():
     dataset_path = "/home/ohta/workspace/eye_tracking/data"
@@ -232,8 +274,8 @@ if __name__ == "__main__":
     parser.add_argument('--save_dir', default='./result')
     parser.add_argument('--epochs', default=20, type=int)
     parser.add_argument('--batch_size', default=30, type=int)
-    parser.add_argument('--n_class', default=3, type=int)
-    parser.add_argument('--dim_capsule', default=16, type=int)
+    parser.add_argument('--n_class', default=8, type=int)
+    parser.add_argument('--dim_capsule', default=8, type=int)
     parser.add_argument('--lr', default=0.01, type=float,
                         help="Initial learning rate")
     parser.add_argument('--lr_decay', default=0.9, type=float,
@@ -258,17 +300,21 @@ if __name__ == "__main__":
     #(x_train, eye_train, y_train), (x_test, eye_test, y_test) = load_GazeCapture()
 
     # define model
-    model = CapsNet(input_shape=(128, 128, 1),
-                    n_class=args.n_class,
-                    routings=args.routings,
-                    dim_capsule=args.dim_capsule)
+    model, eval_model = CapsNet(input_shape=(128, 128, 1),
+                        n_class=args.n_class,
+                        routings=args.routings,
+                        dim_capsule=args.dim_capsule)
     model.summary()
 
     # train or test
     if args.weights is not None:  # init the model weights with provided one
-        model.load_weights(args.weights)
+        eval_model.load_weights(args.weights)
     if not args.testing:
         train(model=model, args=args)
+    else:
+        if args.weights is None:
+            print('No weight')
+        test(model=eval_model, args=args)
     """
     else:  # as long as weights are given, will run testing
         if args.weights is None:
