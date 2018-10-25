@@ -52,21 +52,31 @@ def get_eye_model(img_cols, img_rows, img_ch):
 
     return model
 
+def get_head_model(head_pose=(6,)):
+    head_pose_input = Input(shape=head_pose)
+    out = Dense(128, activation=activation)(head_pose_input)
+    model = Model(inputs=head_pose_input, outputs=out)
+    return model
 
 # final model
 def get_eye_tracker_model(img_cols, img_rows, img_ch):
 
     # get partial models
     eye_net = get_eye_model(img_cols, img_rows, img_ch)
+    head_net = get_head_model()
+
 
     # right eye model
     eye_input = Input(shape=(img_cols, img_rows, img_ch))
     e = eye_net(eye_input)
 
+    head_input = Input(shape=(6,))
+    h = head_net(head_input)
     # dense layers for eyes
     e = Flatten()(e)
-    e = BatchNormalization()(e)
-    fc1 = Dense(128, activation=activation)(e)
+    eh = concatenate([e, h])
+    #eh = BatchNormalization()(eh)
+    fc1 = Dense(128, activation=activation)(eh)
     fc1 = BatchNormalization()(fc1)
     fc1 = Dense(128, activation=activation)(fc1)
     fc1 = BatchNormalization()(fc1)
@@ -76,7 +86,7 @@ def get_eye_tracker_model(img_cols, img_rows, img_ch):
 
     # final model
     final_model = Model(
-        inputs=[eye_input],
+        inputs=[eye_input, head_input],
         outputs=[fc3])
 
     return final_model
@@ -91,7 +101,7 @@ def batch_iter(mode, base_batch_dir):
             for batch_path in batch_path_list:
                 with open(batch_path, 'rb') as f:
                     batch = pickle.load(f)
-                yield batch[0], batch[1]
+                yield [batch[0], batch[1]], batch[2]
     return num_batches, train_generator()
 
 def train(model, args):

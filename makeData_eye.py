@@ -14,16 +14,31 @@ from tqdm import tqdm
 import argparse
 from sklearn.preprocessing import StandardScaler
 from makeData import Subject_iter
+from imutils import face_utils
 
+DETECTOR = dlib.get_frontal_face_detector()
+PREDICTOR = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
 class Subject_iter_eye(Subject_iter):
     def __init__(self, subject_path, args, mode='r'):
         super().__init__(subject_path, args)
         self.mode = mode
-        self.detector = dlib.get_frontal_face_detector()
-        self.predictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
         self.eyeball_size = 24
         FOV = 54.5
         self.px_f = 320/math.tan(math.radians(FOV/2))
+        self.object_pts = np.float32([[6.825897, 6.760612, 4.402142],
+                                 [1.330353, 7.122144, 6.903745],
+                                 [-1.330353, 7.122144, 6.903745],
+                                 [-6.825897, 6.760612, 4.402142],
+                                 [5.311432, 5.485328, 3.987654],
+                                 [1.789930, 5.393625, 4.413414],
+                                 [-1.789930, 5.393625, 4.413414],
+                                 [-5.311432, 5.485328, 3.987654],
+                                 [2.005628, 1.409845, 6.165652],
+                                 [-2.005628, 1.409845, 6.165652],
+                                 [2.774015, -2.080775, 5.048531],
+                                 [-2.774015, -2.080775, 5.048531],
+                                 [0.000000, -3.116408, 6.097667],
+                                 [0.000000, -7.415691, 4.070434]])
     def __iter__(self):
         for f in self.frames_list:
             # limitの回数以上に出力しない
@@ -39,63 +54,66 @@ class Subject_iter_eye(Subject_iter):
                     sc = StandardScaler()
                     img = sc.fit_transform(img)
                 self.frame_size = img.shape
+
+                try:
+                    parts = self.detect_landmark(img)
+                except NoDetectionError:
+                    continue
+                rvec, tvec = self.estimate_head_pose(parts)
+                label_data = self.create_label_data(self.frames_dict[f], rvec, tvec, mode=self.mode)
+                head_pose = self.get_head_pose_vec(rvec, tvec)
                 if self.mode == 'r':
                     eye_data = self.create_eye_data(img, self.reye_json, self.frames_dict[f])
                 else:
                     eye_data = self.create_eye_data(img, self.leye_json, self.frames_dict[f])
-
-                try:
-                    label_data = self.create_label_data(img, self.frames_dict[f])
-                    #if isinstance(label_data, (np.ndarray, np.generic)):
+                #if isinstance(label_data, (np.ndarray, np.generic)):
 # 画像を保存するか？
-                    if self.is_img_saved and not self.is_std:
-                        self.save_image(eye_data, self.mode, f)
-                    self.gen_num += 1
-                    yield (eye_data, label_data)
-                except NoDetectionError:
-                    continue
+                if self.is_img_saved and not self.is_std:
+                    self.save_image(eye_data, self.mode, f)
+                self.gen_num += 1
+                yield (eye_data, head_pose, label_data)
 
-    def create_label_data(self, img, i):
+    def create_label_data(self, i, rvec, tvec, mode='r'):
         x = self.dotInfo_json['XCam'][i]
         y = self.dotInfo_json['YCam'][i]
-        ex, ey, ez = self.estimate_eye_xyz(img)
-        x = (x - ex) / -ez * 100
-        y = (y - ey) / -ez * 100
+        ex, ey, ez = self.get_eye_xyz(rvec, tvec, mode=mode)
+        x = (x - ex) / ez * 100
+        y = (y - ey) / ez * 100
         data = np.array([x, y])
         self.save_label(data)
         return data
-    def get_head_pose(self, img): 
-        object_pts = np.float32([[6.825897, 6.760612, 4.402142],
-                                 [1.330353, 7.122144, 6.903745],
-                                 [-1.330353, 7.122144, 6.903745],
-                                 [-6.825897, 6.760612, 4.402142],
-                                 [5.311432, 5.485328, 3.987654],
-                                 [1.789930, 5.393625, 4.413414],
-                                 [-1.789930, 5.393625, 4.413414],
-                                 [-5.311432, 5.485328, 3.987654],
-                                 [2.005628, 1.409845, 6.165652],
-                                 [-2.005628, 1.409845, 6.165652],
-                                 [2.774015, -2.080775, 5.048531],
-                                 [-2.774015, -2.080775, 5.048531],
-                                 [0.000000, -3.116408, 6.097667],
-                                 [0.000000, -7.415691, 4.070434]])
-        centerX = img.shape[1]/2
-        centerY = img.shape[0]/2
-        shape = self.detect_landmark(img)
+    def estimate_head_pose(self, shape): 
         image_pts = np.float32([shape[17], shape[21], shape[22], shape[26], shape[36],
                                 shape[39], shape[42], shape[45], shape[31], shape[35],
                                 shape[48], shape[54], shape[57], shape[8]])
-        camera_matrix = np.float32([[px_f, 0, centerX],
-                                    [0, px_f, centerY],
+        centerX = self.frame_size[1]/2
+        centerY = self.frame_size[0]/2
+        camera_matrix = np.float32([[self.px_f, 0, centerX],
+                                    [0, self.px_f, centerY],
                                     [0, 0, 1]])
         dist_coeffs = np.zeros((4,1)).astype(np.float32)
-        _, rotation_vec, translation_vec = cv2.solvePnP(object_pts, image_pts,
+        _, rotation_vec, translation_vec = cv2.solvePnP(self.object_pts, image_pts,
                                                         camera_matrix, dist_coeffs,
                                                         cv2.SOLVEPNP_EPNP)
-        rvec = rotation_vec.reshape([3])
-        tvec = translation_vec.reshape([3])
+        return rotation_vec, translation_vec
+
+    def get_eye_xyz(self, rvec, tvec, mode='r'):
+        RT = self.rvec2rmat(rvec, tvec)
+        if mode=='r':
+            eye_world = (self.object_pts[4] + self.object_pts[5]) / 2
+        else:
+            eye_world = (self.object_pts[6] + self.object_pts[7]) / 2
+        eye_world = np.append(eye_world, 1)
+        eye_camera = np.dot(RT, eye_world)
+        return eye_camera
+
+    def get_head_pose_vec(self, rvec, tvec):
+        rvec = rvec.reshape([3])
+        tvec = tvec.reshape([3])
         head_pose = np.concatenate([rvec, tvec])
-        x,y,z = rotation_vec
+        return head_pose
+    def rvec2rmat(self, rvec, tvec):
+        x,y,z = rvec
         Rx = np.float32([[1, 0, 0],
                         [0, np.cos(x), -np.sin(x)],
                         [0, np.sin(x), np.cos(x)]])
@@ -106,39 +124,14 @@ class Subject_iter_eye(Subject_iter):
                         [np.sin(z), np.cos(z), 0],
                         [0, 0, 1]])
         R = np.dot(np.dot(Rx, Ry), Rz)
-        RT = np.concatenate([R, translation_vec], axis=1)
-        reye_world = (object_pts[4] + object_pts[5]) /2
-        reye_world = np.append(reye_world, 1)
-        reye_camera = np.dot(RT, reye_world)
-        return reye_camera, head_pose
+        RT = np.concatenate([R, tvec], axis=1)
+        return RT
 
-    def estimate_eye_xyz(self, img):
-        centerX = img.shape[1]/2
-        centerY = img.shape[0]/2
-        partL, partR = self.detect_eye(img)
-        l = np.sqrt((partL.x - partR.x)**2 + (partL.y - partR.y)**2)
-        z = self.eyeball_size * self.px_f / l
-        eye_x = (partL.x + partR.x)/2
-        eye_y = (partL.y + partR.y)/2
-        x = -self.eyeball_size*(eye_x - centerX)/l
-        y = -self.eyeball_size*(eye_y - centerY)/l
-        return x/10, y/10, z/10
-
-    def detect_eye(self, img):
-        dets = self.detector(img[:, :, ::-1])
-        if len(dets) > 0:
-            parts = self.predictor(img, dets[0]).parts()
-            if self.mode == 'r': 
-                return parts[36], parts[39]
-            else:
-                return parts[42], parts[45]
-        else:
-            raise NoDetectionError
-            #return False
     def detect_landmark(self, img):
-        dets = self.detector(img[:, :, ::-1])
+        dets = DETECTOR(img[:, :, ::-1])
         if len(dets) > 0:
-            parts = self.predictor(img, dets[0]).parts()
+            parts = PREDICTOR(img, dets[0])
+            parts = face_utils.shape_to_np(parts)
             return parts
         else:
             raise NoDetectionError
@@ -155,11 +148,13 @@ class Dataset_eye(object):
         self.is_shuffle = args.is_shuffle
         self.is_std = args.is_std
         self.eye = []
+        self.head = []
         self.label = []
     def input_sub(self, subject_iter):
         for sub in tqdm(subject_iter):
             self.eye.append(sub[0])
-            self.label.append(sub[1])
+            self.head.append(sub[1])
+            self.label.append(sub[2])
     def debug(self, subject):
         for sub in subject.generator():
             (eyes_data, label_data) = sub
@@ -167,6 +162,7 @@ class Dataset_eye(object):
             break
     def convert(self):
         self.eye = np.array(self.eye).astype('float32')
+        self.head = np.array(self.head).astype('float32')
         if not self.is_std:
             self.eye = self.eye / 255.
         self.label = np.array(self.label).astype('float32')
@@ -179,11 +175,13 @@ class Dataset_eye(object):
         if self.is_shuffle:
             indices = np.random.permutation(data_size)
             self.eye = self.eye[indices]
+            self.head = self.head[indices]
             self.label = self.label[indices]
         for i in range(num_batches):
             eye_batch = self.eye[i*self.batch_size:(i+1)*self.batch_size]
+            head_batch = self.head[i*self.batch_size:(i+1)*self.batch_size]
             label_batch = self.label[i*self.batch_size:(i+1)*self.batch_size]
-            batch = [eye_batch, label_batch]
+            batch = [eye_batch, head_batch, label_batch]
             with open(join(output_path, (str(i)+'.pickle')), 'wb') as f:
                 pickle.dump(batch, f)
 
