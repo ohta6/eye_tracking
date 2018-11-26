@@ -41,20 +41,25 @@ def get_eye_model(img_cols, img_rows, img_ch):
     out = Conv2D(64, (1, 1), activation=activation)(h)
     """
 
-    h = Conv2D(96, (5, 5), activation=activation)(eye_img_input)
+    h = Conv2D(96, (5, 5), activation=activation, 
+                kernel_regularizer=regularizers.l1(0.01))(eye_img_input)
     h = MaxPool2D(pool_size=(2, 2))(h)
-    h = Conv2D(256, (5, 5), activation=activation)(h)
+    h = Conv2D(256, (5, 5), activation=activation,
+                kernel_regularizer=regularizers.l1(0.01))(h)
     h = MaxPool2D(pool_size=(2, 2))(h)
-    h = Conv2D(384, (3, 3), activation=activation)(h)
+    h = Conv2D(384, (3, 3), activation=activation,
+                kernel_regularizer=regularizers.l1(0.01))(h)
     h = MaxPool2D(pool_size=(2, 2))(h)
-    out = Conv2D(64, (1, 1), activation=activation)(h)
+    out = Conv2D(64, (1, 1), activation=activation,
+                kernel_regularizer=regularizers.l1(0.01))(h)
     model = Model(inputs=eye_img_input, outputs=out)
 
     return model
 
 def get_head_model(head_pose=(6,)):
     head_pose_input = Input(shape=head_pose)
-    out = Dense(128, activation=activation)(head_pose_input)
+    out = Dense(128, activation=activation,
+                kernel_regularizer=regularizers.l1(0.01))(head_pose_input)
     model = Model(inputs=head_pose_input, outputs=out)
     return model
 
@@ -76,14 +81,18 @@ def get_eye_tracker_model(img_cols, img_rows, img_ch):
     e = Flatten()(e)
     eh = concatenate([e, h])
     #eh = BatchNormalization()(eh)
-    fc1 = Dense(128, activation=activation)(eh)
+    fc1 = Dense(128, activation=activation,
+                kernel_regularizer=regularizers.l1(0.01))(eh)
     fc1 = BatchNormalization()(fc1)
-    fc1 = Dense(128, activation=activation)(fc1)
+    fc1 = Dense(128, activation=activation,
+                kernel_regularizer=regularizers.l1(0.01))(fc1)
     fc1 = BatchNormalization()(fc1)
-    fc2 = Dense(64, activation=activation)(fc1)
-    fc2 = BatchNormalization()(fc2)
+    fc2 = Dense(64, activation=activation,
+                kernel_regularizer=regularizers.l1(0.01))(fc1)
+    #fc2 = BatchNormalization()(fc2)
     fc3 = Dense(2, activation=last_activation)(fc2)
 
+                
     # final model
     final_model = Model(
         inputs=[eye_input, head_input],
@@ -150,6 +159,23 @@ def train(model, args):
     print('Trained model saved to \'%s/trained_model.h5\'' % args.save_dir)
 
     return model
+
+def test(model, args):
+    _, test_generator = batch_iter('test', args.batch_dir)
+    buf = []
+    count = 0
+    for input_batch, label_batch in test_generator:
+        y_preds = model.predict(input_batch, batch_size=args.batch_size)
+        print(y_preds)
+        real_dists = np.sqrt(np.sum((label_batch-y_preds)**2, axis=-1))
+        #print(real_dists)
+        buf.append(real_dists)
+        count += 1
+        if count == 100:
+            break
+    total = np.concatenate(buf, axis=0)
+    print(total.shape)
+    print(total.mean())
 if __name__ == "__main__":
     import os
     from os.path import join
@@ -161,7 +187,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Capsule Network on MNIST.")
     parser.add_argument('--batch_dir', default='/home/docker/share/eye_tracking/data/')
     parser.add_argument('--save_dir', default='./result')
-    parser.add_argument('--epochs', default=20, type=int)
+    parser.add_argument('--epochs', default=40, type=int)
     parser.add_argument('--batch_size', default=30, type=int)
     parser.add_argument('--n_class', default=8, type=int)
     parser.add_argument('--dim_capsule', default=8, type=int)
@@ -189,10 +215,10 @@ if __name__ == "__main__":
 
     # train or test
     if args.weights is not None:  # init the model weights with provided one
-        eval_model.load_weights(args.weights)
+        model.load_weights(args.weights)
     if not args.testing:
         train(model=model, args=args)
     else:
         if args.weights is None:
             print('No weight')
-        test(model=eval_model, args=args)
+        test(model=model, args=args)
