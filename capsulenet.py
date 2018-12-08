@@ -272,7 +272,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Capsule Network on MNIST.")
     parser.add_argument('--batch_dir', default='/home/docker/share/eye_tracking/data/')
     parser.add_argument('--save_dir', default='./result')
-    parser.add_argument('--epochs', default=20, type=int)
+    parser.add_argument('--epochs', default=40, type=int)
     parser.add_argument('--batch_size', default=30, type=int)
     parser.add_argument('--n_class', default=8, type=int)
     parser.add_argument('--dim_capsule', default=8, type=int)
