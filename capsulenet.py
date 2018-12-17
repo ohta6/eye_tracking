@@ -66,17 +66,6 @@ def CapsNet(input_shape, n_class, routings, dim_capsule=16):
     # If using tensorflow, this will not be necessary. :)
 # 回帰用に変更の必要あり
     #out_caps = Length(name='capsnet')(digitcaps)
-    regression = models.Sequential(name='regression')
-    regression.add(layers.Reshape(target_shape=(n_class*dim_capsule,), input_shape=(n_class, dim_capsule)))
-    regression.add(layers.Dense(256, activation='relu', input_dim=n_class*dim_capsule))
-#                                kernel_regularizer=regularizers.l2(0.01)))
-    regression.add(layers.normalization.BatchNormalization())
-    regression.add(layers.Dense(512, activation='relu'))
-#                                kernel_regularizer=regularizers.l2(0.01)))
-    regression.add(layers.normalization.BatchNormalization())
-    #regression.add(layers.Dropout(0.5))
-    regression.add(layers.Dense(2))
-    out_caps = regression(digitcaps)
 
     # Decoder network.
 # 入力削除、maskも不要
@@ -111,8 +100,8 @@ def CapsNet(input_shape, n_class, routings, dim_capsule=16):
     decoder_reye.add(layers.Dense(32*32*1, activation='sigmoid'))
 
     # Models for training and evaluation (prediction)
-    model = models.Model(x, [out_caps, decoder_leye(digitcaps), decoder_reye(digitcaps)])
-    eval_model = models.Model(x, [out_caps, decoder_leye(digitcaps), decoder_reye(digitcaps)])
+    model = models.Model(x, [decoder_leye(digitcaps), decoder_reye(digitcaps)])
+    eval_model = models.Model(x, [decoder_leye(digitcaps), decoder_reye(digitcaps)])
     """
     eval_model = models.Model(x, [out_caps, decoder(digitcaps)])
 
@@ -136,7 +125,7 @@ def batch_iter(mode, base_batch_dir):
             for batch_path in batch_path_list:
                 with open(batch_path, 'rb') as f:
                     batch = pickle.load(f)
-                yield batch[0], [batch[3], batch[1], batch[2]]
+                yield batch[0], [batch[1], batch[2]]
     return num_batches, train_generator()
 
 
@@ -160,8 +149,8 @@ def train(model, args):
 
     # compile the model
     model.compile(optimizer=optimizers.Adam(lr=args.lr),
-                  loss=['mse', 'mse', 'mse'],
-                  loss_weights=[1., args.lam_recon, args.lam_recon],
+                  loss=['mse', 'mse'],
+                  loss_weights=[args.lam_recon, args.lam_recon],
                   metrics={'capsnet': 'mae'})
 
     """
@@ -272,7 +261,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Capsule Network on MNIST.")
     parser.add_argument('--batch_dir', default='/home/docker/share/eye_tracking/data/')
     parser.add_argument('--save_dir', default='./result')
-    parser.add_argument('--epochs', default=20, type=int)
+    parser.add_argument('--epochs', default=40, type=int)
     parser.add_argument('--batch_size', default=30, type=int)
     parser.add_argument('--n_class', default=8, type=int)
     parser.add_argument('--dim_capsule', default=8, type=int)

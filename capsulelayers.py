@@ -9,7 +9,7 @@ Author: Xifeng Guo, E-mail: `guoxifeng1990@163.com`, Github: `https://github.com
 
 import keras.backend as K
 import tensorflow as tf
-from keras import initializers, layers
+from keras import initializers, layers, regularizers
 
 
 class Length(layers.Layer):
@@ -113,6 +113,7 @@ class CapsuleLayer(layers.Layer):
         self.W = self.add_weight(shape=[self.num_capsule, self.input_num_capsule,
                                         self.dim_capsule, self.input_dim_capsule],
                                  initializer=self.kernel_initializer,
+                                 regularizer=regularizers.l1(0.01),
                                  name='W')
 
         self.built = True
